@@ -52,9 +52,12 @@ async def chat(request: ChatRequest):
 
         # Check for escalation or insufficient info
         escalate = filters.get("escalate", False)
-        needs_more_info = filters.get("needs_more_info", False)
+        # After 3+ user turns, never block on needs_more_info — force a search attempt
+        user_turn_count = sum(1 for m in history if m["role"] == "user")
+        needs_more_info = filters.get("needs_more_info", False) and user_turn_count < 3
         providers_data = []
         provider_cards = []
+        broadened = False
 
         if escalate:
             # Mark session as escalated
@@ -66,7 +69,7 @@ async def chat(request: ChatRequest):
             pass
         elif filters.get("needs_providers", False):
             # Query database for matching providers (reuse existing db connection)
-            providers_data = await search_providers(filters, db=db)
+            providers_data, broadened = await search_providers(filters, db=db)
             provider_cards = [
                 ProviderCard(
                     id=p["id"],
@@ -97,7 +100,7 @@ async def chat(request: ChatRequest):
         elif not filters.get("needs_providers", False):
             provider_context = "No provider search needed. The user is asking a general question — answer it directly."
         else:
-            provider_context = format_provider_context(providers_data)
+            provider_context = format_provider_context(providers_data, broadened=broadened)
         response_text = await generate_response(history, provider_context)
 
         # Update location if extracted

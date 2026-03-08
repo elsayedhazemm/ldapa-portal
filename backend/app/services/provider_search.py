@@ -9,85 +9,114 @@ def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-async def search_providers(filters: dict, db=None) -> list[dict]:
+def _build_query(filters: dict, relax_city: bool = False, relax_age: bool = False) -> tuple[str, list]:
+    """Build a provider search query. Returns (query_string, params)."""
+    conditions = ["p.is_deleted = 0", "p.verification_status = 'verified'"]
+    params = []
+
+    # Service types filter
+    if filters.get("service_types"):
+        service_conditions = []
+        for st in filters["service_types"]:
+            service_conditions.append("p.service_types LIKE ?")
+            params.append(f"%{st}%")
+        conditions.append(f"({' OR '.join(service_conditions)})")
+
+    # Specializations filter
+    if filters.get("specializations"):
+        spec_conditions = []
+        for sp in filters["specializations"]:
+            spec_conditions.append("p.specializations LIKE ?")
+            params.append(f"%{sp}%")
+        conditions.append(f"({' OR '.join(spec_conditions)})")
+
+    # Cost tier filter
+    if filters.get("cost_tier"):
+        cost_placeholders = ",".join("?" for _ in filters["cost_tier"])
+        conditions.append(f"p.cost_tier IN ({cost_placeholders})")
+        params.extend(filters["cost_tier"])
+
+    # Age group filter (can be relaxed)
+    if not relax_age and filters.get("age_group"):
+        age_conditions = []
+        for ag in filters["age_group"]:
+            age_conditions.append("p.serves_ages LIKE ?")
+            params.append(f"%{ag}%")
+        conditions.append(f"({' OR '.join(age_conditions)})")
+
+    # Location filter (can be relaxed to state-wide)
+    if not relax_city:
+        location = filters.get("location", {})
+        if location.get("zip"):
+            conditions.append("p.zip_code = ?")
+            params.append(location["zip"])
+        elif location.get("city"):
+            conditions.append("LOWER(p.city) = LOWER(?)")
+            params.append(location["city"])
+
+    where_clause = " AND ".join(conditions)
+
+    # Build relevance scoring with search text
+    search_text = filters.get("search_text", "")
+    order_clause = "p.name ASC"
+    if search_text:
+        order_clause = """
+            CASE
+                WHEN LOWER(p.name) LIKE LOWER(?) ESCAPE '\\' THEN 1
+                WHEN LOWER(p.description) LIKE LOWER(?) ESCAPE '\\' THEN 2
+                WHEN LOWER(p.organization) LIKE LOWER(?) ESCAPE '\\' THEN 3
+                ELSE 4
+            END, p.name ASC
+        """
+        search_param = f"%{_escape_like(search_text)}%"
+        params.extend([search_param, search_param, search_param])
+
+    query = f"""
+        SELECT p.* FROM providers p
+        WHERE {where_clause}
+        ORDER BY {order_clause}
+        LIMIT 5
+    """
+    return query, params
+
+
+async def search_providers(filters: dict, db=None) -> tuple[list[dict], bool]:
+    """Search providers with automatic broadening fallback.
+
+    Returns (providers, broadened) where broadened=True means the strict
+    search had no results and filters were relaxed to find these results.
+    """
     close_db = db is None
     if db is None:
         db = await get_db()
     try:
-        conditions = ["p.is_deleted = 0", "p.verification_status = 'verified'"]
-        params = []
-
-        # Service types filter
-        if filters.get("service_types"):
-            service_conditions = []
-            for st in filters["service_types"]:
-                service_conditions.append("p.service_types LIKE ?")
-                params.append(f"%{st}%")
-            conditions.append(f"({' OR '.join(service_conditions)})")
-
-        # Specializations filter
-        if filters.get("specializations"):
-            spec_conditions = []
-            for sp in filters["specializations"]:
-                spec_conditions.append("p.specializations LIKE ?")
-                params.append(f"%{sp}%")
-            conditions.append(f"({' OR '.join(spec_conditions)})")
-
-        # Cost tier filter
-        if filters.get("cost_tier"):
-            cost_placeholders = ",".join("?" for _ in filters["cost_tier"])
-            conditions.append(f"p.cost_tier IN ({cost_placeholders})")
-            params.extend(filters["cost_tier"])
-
-        # Age group filter
-        if filters.get("age_group"):
-            age_conditions = []
-            for ag in filters["age_group"]:
-                age_conditions.append("p.serves_ages LIKE ?")
-                params.append(f"%{ag}%")
-            conditions.append(f"({' OR '.join(age_conditions)})")
-
-        # Location filter
-        location = filters.get("location", {})
-        if location.get("city"):
-            conditions.append("LOWER(p.city) = LOWER(?)")
-            params.append(location["city"])
-        if location.get("zip"):
-            conditions.append("p.zip_code = ?")
-            params.append(location["zip"])
-
-        where_clause = " AND ".join(conditions)
-
-        # Build relevance scoring with search text
-        search_text = filters.get("search_text", "")
-        order_clause = "p.name ASC"
-        if search_text:
-            order_clause = """
-                CASE
-                    WHEN LOWER(p.name) LIKE LOWER(?) ESCAPE '\\' THEN 1
-                    WHEN LOWER(p.description) LIKE LOWER(?) ESCAPE '\\' THEN 2
-                    WHEN LOWER(p.organization) LIKE LOWER(?) ESCAPE '\\' THEN 3
-                    ELSE 4
-                END, p.name ASC
-            """
-            search_param = f"%{_escape_like(search_text)}%"
-            params.extend([search_param, search_param, search_param])
-
-        query = f"""
-            SELECT p.* FROM providers p
-            WHERE {where_clause}
-            ORDER BY {order_clause}
-            LIMIT 5
-        """
-
+        # Pass 1: strict search (exact city + age)
+        query, params = _build_query(filters)
         cursor = await db.execute(query, params)
         rows = await cursor.fetchall()
+        if rows:
+            return [_row_to_dict(r) for r in rows], False
 
-        providers = []
-        for row in rows:
-            providers.append(_row_to_dict(row))
+        # Pass 2: relax age group, keep city
+        query, params = _build_query(filters, relax_age=True)
+        cursor = await db.execute(query, params)
+        rows = await cursor.fetchall()
+        if rows:
+            return [_row_to_dict(r) for r in rows], True
 
-        return providers
+        # Pass 3: relax city (state-wide), keep age
+        query, params = _build_query(filters, relax_city=True)
+        cursor = await db.execute(query, params)
+        rows = await cursor.fetchall()
+        if rows:
+            return [_row_to_dict(r) for r in rows], True
+
+        # Pass 4: relax both city and age
+        query, params = _build_query(filters, relax_city=True, relax_age=True)
+        cursor = await db.execute(query, params)
+        rows = await cursor.fetchall()
+        return [_row_to_dict(r) for r in rows], True
+
     finally:
         if close_db:
             await db.close()
@@ -183,9 +212,13 @@ def _row_to_dict(row) -> dict:
     return d
 
 
-def format_provider_context(providers: list[dict]) -> str:
+def format_provider_context(providers: list[dict], broadened: bool = False) -> str:
     if not providers:
         return "No matching providers found in the directory."
+
+    header = ""
+    if broadened:
+        header = "NOTE: No exact matches were found. The following are the closest available providers in the directory (filters were broadened — location or age group may not be an exact match). Mention this to the user clearly.\n\n"
 
     lines = []
     for p in providers:
@@ -209,4 +242,4 @@ def format_provider_context(providers: list[dict]) -> str:
             parts.append(f"  Description: {p['description'][:200]}")
         lines.append("\n".join(parts))
 
-    return "\n\n".join(lines)
+    return header + "\n\n".join(lines)
