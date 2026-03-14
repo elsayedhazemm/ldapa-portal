@@ -6,25 +6,53 @@
 -- ============================================
 CREATE TABLE IF NOT EXISTS providers (
     id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    organization TEXT,
-    service_types TEXT NOT NULL,          -- JSON array: e.g. '["evaluator","tutor"]'
-    specializations TEXT DEFAULT '[]',    -- JSON array
-    serves_ages TEXT DEFAULT '[]',        -- JSON array
+    first_name TEXT,
+    last_name TEXT,
+    name TEXT NOT NULL,                    -- "first_name last_name"
+    listing_type TEXT,                     -- 'Individual' or 'Company'
+    profession_name TEXT NOT NULL,         -- 'Tutor','Health_Professional','Lawyer','School','Advocate'
+    services TEXT,                         -- sub-services: "Therapist,Doctor=>Psychiatrist"
+    training TEXT,                         -- methodology/certs: "Wilson Language", "Orton-Gillingham"
+    credentials TEXT,                      -- license numbers
+    license TEXT,                          -- license type
+
+    -- Location
     address TEXT,
-    city TEXT NOT NULL,
-    state TEXT NOT NULL DEFAULT 'PA',
+    city TEXT,
+    state TEXT DEFAULT 'PA',
+    state_code TEXT DEFAULT 'PA',
     zip_code TEXT,
-    region TEXT,
-    cost_tier TEXT NOT NULL,              -- 'free','sliding_scale','low_cost','standard'
-    insurance_accepted INTEGER DEFAULT 0,
-    accepts_medicaid INTEGER DEFAULT 0,
-    cost_notes TEXT,
+    lat REAL,
+    lon REAL,
+
+    -- Ages & grades
+    age_range_served TEXT,                -- "Adults, Teens" or "4-65"
+    grades_offered TEXT,                  -- school-only: "Grades 1-8"
+
+    -- Pricing & insurance
+    price_per_visit TEXT,                 -- "$150 - $250"
+    sliding_scale INTEGER DEFAULT 0,
+    insurance_accepted TEXT,              -- "Aetna, Cigna, Highmark"
+
+    -- Specialty flags
+    ld_adhd_specialty INTEGER DEFAULT 0,
+    learning_difference_support INTEGER DEFAULT 0,
+    adhd_support INTEGER DEFAULT 0,
+
+    -- School-specific
+    student_body_type TEXT,
+    total_size TEXT,
+    average_class_size TEXT,
+    religion TEXT,
+
+    -- Contact
     phone TEXT,
     email TEXT,
     website TEXT,
-    description TEXT,
-    verification_status TEXT NOT NULL DEFAULT 'unverified',  -- 'verified','unverified','archived'
+    profile_url TEXT,
+
+    -- Admin/meta
+    verification_status TEXT NOT NULL DEFAULT 'unverified',
     last_verified_at TEXT,
     staff_notes TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -34,7 +62,9 @@ CREATE TABLE IF NOT EXISTS providers (
 
 CREATE INDEX IF NOT EXISTS idx_providers_city ON providers (city);
 CREATE INDEX IF NOT EXISTS idx_providers_zip ON providers (zip_code);
+CREATE INDEX IF NOT EXISTS idx_providers_state ON providers (state_code);
 CREATE INDEX IF NOT EXISTS idx_providers_status ON providers (verification_status);
+CREATE INDEX IF NOT EXISTS idx_providers_profession ON providers (profession_name);
 
 -- ============================================
 -- CHAT SESSIONS (anonymous)

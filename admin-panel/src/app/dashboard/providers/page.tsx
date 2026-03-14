@@ -7,9 +7,9 @@ import { getProviders, bulkVerify, bulkArchive } from "@/lib/api";
 interface Provider {
   id: string;
   name: string;
-  organization: string | null;
-  service_types: string[];
-  city: string;
+  profession_name: string;
+  city: string | null;
+  state_code: string;
   verification_status: string;
   last_verified_at: string | null;
   updated_at: string;
@@ -21,7 +21,7 @@ export default function ProvidersPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [serviceFilter, setServiceFilter] = useState("");
+  const [professionFilter, setProfessionFilter] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
@@ -31,7 +31,7 @@ export default function ProvidersPage() {
       const data = await getProviders({
         search,
         status: statusFilter,
-        service_type: serviceFilter,
+        profession: professionFilter,
         page,
         per_page: 20,
       });
@@ -46,7 +46,7 @@ export default function ProvidersPage() {
 
   useEffect(() => {
     fetchProviders();
-  }, [page, statusFilter, serviceFilter]); // eslint-disable-line
+  }, [page, statusFilter, professionFilter]); // eslint-disable-line
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,6 +93,17 @@ export default function ProvidersPage() {
     );
   };
 
+  const professionLabel = (name: string) => {
+    const labels: Record<string, string> = {
+      Tutor: "Tutor",
+      Health_Professional: "Health Pro",
+      Lawyer: "Lawyer",
+      School: "School",
+      Advocate: "Advocate",
+    };
+    return labels[name] || name;
+  };
+
   const totalPages = Math.ceil(total / 20);
 
   return (
@@ -132,18 +143,16 @@ export default function ProvidersPage() {
           <option value="archived">Archived</option>
         </select>
         <select
-          value={serviceFilter}
-          onChange={(e) => { setServiceFilter(e.target.value); setPage(1); }}
+          value={professionFilter}
+          onChange={(e) => { setProfessionFilter(e.target.value); setPage(1); }}
           className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
         >
-          <option value="">All Services</option>
-          <option value="evaluator">Evaluator</option>
-          <option value="tutor">Tutor</option>
-          <option value="advocate">Advocate</option>
-          <option value="therapist">Therapist</option>
-          <option value="clinic">Clinic</option>
-          <option value="support_group">Support Group</option>
-          <option value="nonprofit_org">Nonprofit</option>
+          <option value="">All Types</option>
+          <option value="Tutor">Tutor</option>
+          <option value="Health_Professional">Health Professional</option>
+          <option value="Lawyer">Lawyer</option>
+          <option value="School">School</option>
+          <option value="Advocate">Advocate</option>
         </select>
       </div>
 
@@ -172,8 +181,8 @@ export default function ProvidersPage() {
                 <input type="checkbox" checked={selected.size === providers.length && providers.length > 0} onChange={toggleAll} />
               </th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Name</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Services</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">City</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-600">Type</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-600">Location</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Last Verified</th>
             </tr>
@@ -193,14 +202,13 @@ export default function ProvidersPage() {
                     <Link href={`/dashboard/providers/${p.id}`} className="font-medium text-blue-600 hover:underline">
                       {p.name}
                     </Link>
-                    {p.organization && (
-                      <div className="text-xs text-gray-400">{p.organization}</div>
-                    )}
                   </td>
                   <td className="px-4 py-3 text-gray-600">
-                    {p.service_types.map((s) => s.replace(/_/g, " ")).join(", ")}
+                    {professionLabel(p.profession_name)}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{p.city}</td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {p.city ? `${p.city}, ${p.state_code}` : p.state_code}
+                  </td>
                   <td className="px-4 py-3">{statusBadge(p.verification_status)}</td>
                   <td className="px-4 py-3 text-gray-400 text-xs">
                     {p.last_verified_at

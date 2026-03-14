@@ -57,7 +57,7 @@ export function getSession(id: string) {
 export function getProviders(params: {
   search?: string;
   status?: string;
-  service_type?: string;
+  profession?: string;
   city?: string;
   page?: number;
   per_page?: number;
@@ -65,7 +65,7 @@ export function getProviders(params: {
   const query = new URLSearchParams();
   if (params.search) query.set("search", params.search);
   if (params.status) query.set("status", params.status);
-  if (params.service_type) query.set("service_type", params.service_type);
+  if (params.profession) query.set("profession", params.profession);
   if (params.city) query.set("city", params.city);
   if (params.page) query.set("page", String(params.page));
   if (params.per_page) query.set("per_page", String(params.per_page));

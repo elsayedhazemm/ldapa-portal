@@ -14,22 +14,25 @@ interface DisplayMessage {
   feedback?: "up" | "down" | null;
 }
 
-function CostBadge({ tier }: { tier: string }) {
+const PROFESSION_LABELS: Record<string, string> = {
+  Tutor: "Tutor",
+  Health_Professional: "Health Professional",
+  Lawyer: "Education Lawyer",
+  School: "School / Program",
+  Advocate: "Advocate",
+};
+
+function ProfessionBadge({ profession }: { profession: string }) {
   const colors: Record<string, string> = {
-    free: "bg-green-100 text-green-800",
-    sliding_scale: "bg-blue-100 text-blue-800",
-    low_cost: "bg-yellow-100 text-yellow-800",
-    standard: "bg-gray-100 text-gray-800",
-  };
-  const labels: Record<string, string> = {
-    free: "Free",
-    sliding_scale: "Sliding Scale",
-    low_cost: "Low Cost",
-    standard: "Standard",
+    Tutor: "bg-purple-100 text-purple-800",
+    Health_Professional: "bg-blue-100 text-blue-800",
+    Lawyer: "bg-amber-100 text-amber-800",
+    School: "bg-green-100 text-green-800",
+    Advocate: "bg-pink-100 text-pink-800",
   };
   return (
-    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${colors[tier] || colors.standard}`}>
-      {labels[tier] || tier}
+    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${colors[profession] || "bg-gray-100 text-gray-800"}`}>
+      {PROFESSION_LABELS[profession] || profession}
     </span>
   );
 }
@@ -46,10 +49,17 @@ function ProviderCardComponent({ provider }: { provider: ProviderCard }) {
         <div className="flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-gray-900">{provider.name}</span>
-            <CostBadge tier={provider.cost_tier} />
+            <ProfessionBadge profession={provider.profession_name} />
+            {provider.sliding_scale && (
+              <span className="inline-block rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+                Sliding Scale
+              </span>
+            )}
           </div>
           <div className="mt-1 text-sm text-gray-500">
-            {provider.service_types.map((s) => s.replace(/_/g, " ")).join(", ")} — {provider.city}
+            {provider.city && `${provider.city}, `}{provider.state_code}
+            {provider.zip_code && ` ${provider.zip_code}`}
+            {provider.price_per_visit && ` \u00B7 ${provider.price_per_visit}`}
           </div>
         </div>
         <svg
@@ -61,32 +71,36 @@ function ProviderCardComponent({ provider }: { provider: ProviderCard }) {
       </button>
       {expanded && (
         <div className="border-t border-gray-100 px-4 pb-4 pt-3 text-sm">
-          {provider.organization && (
-            <p className="text-gray-600"><span className="font-medium">Organization:</span> {provider.organization}</p>
-          )}
-          {provider.description && (
-            <p className="mt-2 text-gray-600">{provider.description}</p>
-          )}
-          {provider.specializations.length > 0 && (
-            <p className="mt-2 text-gray-600">
-              <span className="font-medium">Specializations:</span>{" "}
-              {provider.specializations.map((s) => s.replace(/_/g, " ")).join(", ")}
+          {provider.services && (
+            <p className="text-gray-600">
+              <span className="font-medium">Services:</span>{" "}
+              {provider.services.replace(/=>/g, " \u2192 ").replace(/,/g, ", ")}
             </p>
           )}
-          {provider.serves_ages.length > 0 && (
+          {provider.training && (
             <p className="mt-1 text-gray-600">
-              <span className="font-medium">Ages served:</span>{" "}
-              {provider.serves_ages.join(", ")}
+              <span className="font-medium">Training:</span> {provider.training}
             </p>
           )}
-          {(provider.insurance_accepted || provider.accepts_medicaid) && (
+          {provider.credentials && (
             <p className="mt-1 text-gray-600">
-              {provider.insurance_accepted && <span className="mr-3">Accepts insurance</span>}
-              {provider.accepts_medicaid && <span>Accepts Medicaid</span>}
+              <span className="font-medium">Credentials:</span> {provider.credentials}
             </p>
           )}
-          {provider.cost_notes && (
-            <p className="mt-1 text-gray-600"><span className="font-medium">Cost details:</span> {provider.cost_notes}</p>
+          {provider.age_range_served && (
+            <p className="mt-1 text-gray-600">
+              <span className="font-medium">Ages served:</span> {provider.age_range_served}
+            </p>
+          )}
+          {provider.grades_offered && (
+            <p className="mt-1 text-gray-600">
+              <span className="font-medium">Grades:</span> {provider.grades_offered}
+            </p>
+          )}
+          {provider.insurance_accepted && (
+            <p className="mt-1 text-gray-600">
+              <span className="font-medium">Insurance:</span> {provider.insurance_accepted}
+            </p>
           )}
           <div className="mt-3 flex flex-wrap gap-3">
             {provider.phone && (
@@ -95,7 +109,7 @@ function ProviderCardComponent({ provider }: { provider: ProviderCard }) {
               </a>
             )}
             {provider.website && (
-              <a href={provider.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+              <a href={provider.website.startsWith("http") ? provider.website : `https://${provider.website}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                 Website
               </a>
             )}
@@ -115,11 +129,11 @@ function EscalationCard() {
   return (
     <div className="my-3 rounded-lg border-2 border-amber-300 bg-amber-50 p-4">
       <div className="flex items-start gap-3">
-        <span className="text-2xl">⚠️</span>
+        <span className="text-2xl">&#9888;&#65039;</span>
         <div>
           <h4 className="font-semibold text-amber-900">Contact LDAPA Directly</h4>
           <p className="mt-1 text-sm text-amber-800">
-            This is something best handled by a person — here&apos;s how to reach LDAPA directly.
+            This is something best handled by a person &mdash; here&apos;s how to reach LDAPA directly.
           </p>
           <div className="mt-3 space-y-1 text-sm">
             <p><span className="font-medium">Phone:</span> (412) 555-1234</p>
@@ -165,7 +179,7 @@ function FeedbackThumbs({
         }`}
         title="Helpful"
       >
-        👍
+        &#128077;
       </button>
       <button
         onClick={() => handleClick("down")}
@@ -176,7 +190,7 @@ function FeedbackThumbs({
         }`}
         title="Not helpful"
       >
-        👎
+        &#128078;
       </button>
     </div>
   );
@@ -308,7 +322,7 @@ function ChatPageInner() {
           {messages.length === 0 && !isLoading && (
             <div className="py-20 text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100">
-                <span className="text-3xl">💬</span>
+                <span className="text-3xl">&#128172;</span>
               </div>
               <h2 className="mb-2 text-xl font-semibold text-gray-900">
                 Welcome to LDAPA Chat
