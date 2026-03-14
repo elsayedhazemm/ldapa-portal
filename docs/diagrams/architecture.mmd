@@ -1,0 +1,38 @@
+graph TB
+    subgraph Internet["Public Internet"]
+        User([User])
+        Admin([Admin])
+    end
+
+    subgraph Frontend["Frontend Layer"]
+        PP["Public Portal\nNext.js :3000"]
+        AP["Admin Panel\nNext.js :3001"]
+    end
+
+    subgraph Backend["FastAPI Backend :8000"]
+        CR["Chat Router\n/api/*"]
+        PR["Providers Router\n/api/admin/*"]
+        DR["Dashboard Router\n/api/admin/dashboard/*"]
+
+        subgraph Services["Service Layer"]
+            LLM["LLM Service\nFilter Extraction\nResponse Generation"]
+            PS["Provider Search\nGeo + Text + Broadening"]
+        end
+
+        DB[("SQLite\nldapa.db")]
+    end
+
+    OpenAI["OpenAI API\ngpt-5-mini"]
+
+    User -->|HTTP/JSON| PP
+    Admin -->|HTTP/JSON + JWT| AP
+    PP --> CR
+    AP --> PR
+    AP --> DR
+    CR --> LLM
+    CR --> PS
+    PR --> PS
+    DR --> DB
+    LLM -->|Responses API| OpenAI
+    LLM --> PS
+    PS --> DB

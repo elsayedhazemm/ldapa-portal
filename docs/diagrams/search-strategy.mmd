@@ -1,0 +1,19 @@
+flowchart TD
+    A{"ZIP code\nprovided?"} -->|YES| B["Resolve ZIP to\nlat/lon from DB"]
+    A -->|NO| D
+
+    B --> C["Geo: 30mi radius"]
+    C -->|found| R(["Return results\nmax 5"])
+    C -->|empty| C2["Geo: 75mi radius"]
+    C2 -->|found| R
+    C2 -->|empty| D
+
+    D["Pass 1\nStrict: city + age"] -->|found| R
+    D -->|empty| E["Pass 2\nRelax age, keep city"]
+    E -->|found| R
+    E -->|empty| F["Pass 3\nRelax city, keep age"]
+    F -->|found| R
+    F -->|empty| G["Pass 4\nRelax both"]
+    G --> R
+
+    style R fill:#d4edda,stroke:#28a745
