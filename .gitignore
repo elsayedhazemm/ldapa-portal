@@ -15,6 +15,11 @@ build/
 
 # Database
 *.db
+*.db-shm
+*.db-wal
+
+# Exports
+*.csv
 
 # IDE
 .vscode/

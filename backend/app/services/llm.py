@@ -24,18 +24,19 @@ def get_client() -> AsyncOpenAI | None:
     return _client
 
 
-VALID_SERVICE_TYPES = {"evaluator", "tutor", "advocate", "therapist", "school_psychologist", "clinic", "support_group", "nonprofit_org"}
-VALID_SPECIALIZATIONS = {"dyslexia", "adhd", "dyscalculia", "dysgraphia", "general_ld", "adult_ld", "iep_504", "workplace_accommodations"}
-VALID_COST_TIERS = {"free", "sliding_scale", "low_cost", "standard"}
+VALID_PROFESSION_TYPES = {"tutor", "health_professional", "lawyer", "school", "advocate"}
+VALID_SPECIALIZATIONS = {"dyslexia", "adhd", "ld", "learning_differences"}
 VALID_AGE_GROUPS = {"children", "adolescents", "adults"}
 
 
 def _validate_filters(raw: dict) -> dict:
     """Validate and coerce LLM-extracted filters to expected types."""
     return {
-        "service_types": [s for s in raw.get("service_types", []) or [] if s in VALID_SERVICE_TYPES],
+        "profession_types": [s for s in raw.get("profession_types", []) or [] if s in VALID_PROFESSION_TYPES],
         "specializations": [s for s in raw.get("specializations", []) or [] if s in VALID_SPECIALIZATIONS],
-        "cost_tier": [s for s in raw.get("cost_tier", []) or [] if s in VALID_COST_TIERS],
+        "insurance": str(raw.get("insurance") or "").strip() or None,
+        "training_methodology": str(raw.get("training_methodology") or "").strip() or None,
+        "sliding_scale": bool(raw.get("sliding_scale", False)),
         "location": {
             "city": raw.get("location", {}).get("city") if isinstance(raw.get("location"), dict) else None,
             "zip": raw.get("location", {}).get("zip") if isinstance(raw.get("location"), dict) else None,
@@ -107,9 +108,11 @@ def _fallback_filter_extraction(conversation_history: list[dict]) -> dict:
     all_text = " ".join(m["content"].lower() for m in conversation_history)
 
     filters = {
-        "service_types": [],
+        "profession_types": [],
         "specializations": [],
-        "cost_tier": [],
+        "insurance": None,
+        "training_methodology": None,
+        "sliding_scale": False,
         "location": {"city": None, "zip": None},
         "age_group": [],
         "needs_providers": False,
@@ -118,30 +121,46 @@ def _fallback_filter_extraction(conversation_history: list[dict]) -> dict:
         "search_text": "",
     }
 
-    # Service types
-    service_keywords = {
-        "evaluator": ["evaluation", "evaluate", "assessed", "assessment", "testing"],
+    # Profession types
+    profession_keywords = {
+        "health_professional": ["evaluation", "evaluate", "assessed", "assessment", "testing",
+                                "therapy", "therapist", "counseling", "counselor", "psychologist", "psychiatrist"],
         "tutor": ["tutor", "tutoring", "reading help", "math help"],
         "advocate": ["advocate", "advocacy", "iep meeting", "school meeting"],
-        "therapist": ["therapy", "therapist", "counseling", "counselor"],
-        "support_group": ["support group", "parent group", "community"],
+        "lawyer": ["lawyer", "attorney", "legal", "sue", "lawsuit", "dispute"],
+        "school": ["school", "program", "private school"],
     }
-    for stype, keywords in service_keywords.items():
+    for ptype, keywords in profession_keywords.items():
         if any(k in all_text for k in keywords):
-            filters["service_types"].append(stype)
+            filters["profession_types"].append(ptype)
 
     # Specializations
-    spec_keywords = {
-        "dyslexia": ["dyslexia", "reading disability", "reading difficulties", "struggling with reading"],
-        "adhd": ["adhd", "attention deficit", "focus", "attention"],
-        "dyscalculia": ["dyscalculia", "math disability", "math difficulties"],
-        "general_ld": ["learning disability", "learning difficulties", "struggling in school"],
-        "adult_ld": ["adult", "workplace", "college"],
-        "iep_504": ["iep", "504", "accommodation"],
+    if any(w in all_text for w in ["dyslexia", "reading disability", "reading difficulties", "struggling with reading"]):
+        filters["specializations"].append("dyslexia")
+    if any(w in all_text for w in ["adhd", "attention deficit", "focus", "attention"]):
+        filters["specializations"].append("adhd")
+    if any(w in all_text for w in ["learning disability", "learning difficulties", "struggling in school"]):
+        filters["specializations"].append("ld")
+
+    # Training methodology
+    methodology_keywords = {
+        "orton-gillingham": ["orton-gillingham", "orton gillingham", "og method", "og-trained", "og trained"],
+        "wilson": ["wilson language", "wilson reading"],
+        "lindamood-bell": ["lindamood", "lindamood-bell"],
+        "multisensory": ["multisensory"],
     }
-    for spec, keywords in spec_keywords.items():
+    for method, keywords in methodology_keywords.items():
         if any(k in all_text for k in keywords):
-            filters["specializations"].append(spec)
+            filters["training_methodology"] = method
+            break
+
+    # Insurance
+    insurance_names = ["aetna", "cigna", "highmark", "upmc", "blue cross", "blue shield",
+                       "united healthcare", "unitedhealthcare", "humana", "medicaid", "medicare"]
+    for ins in insurance_names:
+        if ins in all_text:
+            filters["insurance"] = ins.title()
+            break
 
     # Age groups
     if any(w in all_text for w in ["child", "kid", "son", "daughter", "elementary", "grade"]):
@@ -151,12 +170,15 @@ def _fallback_filter_extraction(conversation_history: list[dict]) -> dict:
     if any(w in all_text for w in ["adult", "myself", "i have", "i think i", "workplace"]):
         filters["age_group"].append("adults")
 
-    # Cost
-    if any(w in all_text for w in ["free", "no cost", "affordable", "cheap", "low cost", "can't afford"]):
-        filters["cost_tier"] = ["free", "sliding_scale", "low_cost"]
+    # Sliding scale / affordability
+    if any(w in all_text for w in ["free", "no cost", "affordable", "cheap", "low cost", "can't afford", "sliding scale"]):
+        filters["sliding_scale"] = True
 
     # Location - look for PA cities
-    pa_cities = ["pittsburgh", "philadelphia", "erie", "harrisburg", "allentown", "state college", "washington"]
+    pa_cities = ["pittsburgh", "philadelphia", "erie", "harrisburg", "allentown",
+                 "state college", "washington", "scranton", "reading", "bethlehem",
+                 "lancaster", "york", "wilkes-barre", "chester", "easton",
+                 "norristown", "stroudsburg", "doylestown", "media", "newtown"]
     for city in pa_cities:
         if city in all_text:
             filters["location"]["city"] = city.title()
@@ -168,7 +190,7 @@ def _fallback_filter_extraction(conversation_history: list[dict]) -> dict:
         filters["location"]["zip"] = zip_match.group(1)
 
     # Needs providers
-    if filters["service_types"] or filters["specializations"] or any(
+    if filters["profession_types"] or filters["specializations"] or any(
         w in last_message for w in ["find", "recommend", "help", "need", "looking for", "where"]
     ):
         filters["needs_providers"] = True
@@ -181,7 +203,7 @@ def _fallback_filter_extraction(conversation_history: list[dict]) -> dict:
 
     # If we couldn't extract any meaningful filters, ask for more info
     has_useful_filters = (
-        filters["service_types"]
+        filters["profession_types"]
         or filters["specializations"]
         or filters["age_group"]
         or filters["location"]["city"]
@@ -205,7 +227,7 @@ def _fallback_response(conversation_history: list[dict], provider_context: str) 
     elif provider_context and provider_context.strip() and provider_context != "No matching providers found in the directory.":
         response = "Thank you for reaching out! Based on what you've told me, here are some resources that might help.\n\n[PROVIDERS]\n\nWould you like to know more about any of these providers, or is there something else I can help you with?"
     else:
-        response = "Thank you for reaching out to LDAPA! I'd love to help you find the right support. Could you tell me a bit more about what you're looking for? For example:\n\n- Are you looking for an evaluation, tutoring, therapy, or advocacy help?\n- What area of Pennsylvania are you in?\n- Is this for a child, teen, or adult?\n\nThe more details you share, the better I can help match you with the right resources."
+        response = "Thank you for reaching out to LDAPA! I'd love to help you find the right support. Could you tell me a bit more about what you're looking for? For example:\n\n- Are you looking for an evaluation, tutoring, therapy, advocacy, or legal help?\n- What area of Pennsylvania are you in?\n- Is this for a child, teen, or adult?\n\nThe more details you share, the better I can help match you with the right resources."
 
     if is_first:
         response += "\n\nJust so you know — I provide general information to help you get started, not professional diagnosis or legal advice. For specific guidance, connecting with a qualified professional is always a good idea."

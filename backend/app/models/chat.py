@@ -18,20 +18,23 @@ class ChatRequest(BaseModel):
 class ProviderCard(BaseModel):
     id: str
     name: str
-    organization: str | None
-    service_types: list[str]
-    city: str
-    zip_code: str | None
-    cost_tier: str
-    phone: str | None
-    email: str | None
-    website: str | None
-    description: str | None
-    specializations: list[str] = []
-    serves_ages: list[str] = []
-    insurance_accepted: bool = False
-    accepts_medicaid: bool = False
-    cost_notes: str | None = None
+    profession_name: str
+    services: str | None = None
+    training: str | None = None
+    city: str | None = None
+    state_code: str = "PA"
+    zip_code: str | None = None
+    price_per_visit: str | None = None
+    sliding_scale: bool = False
+    insurance_accepted: str | None = None
+    age_range_served: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    website: str | None = None
+    credentials: str | None = None
+    listing_type: str | None = None
+    # School-specific
+    grades_offered: str | None = None
 
 
 class ChatResponse(BaseModel):

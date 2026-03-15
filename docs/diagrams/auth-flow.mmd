@@ -1,0 +1,11 @@
+flowchart LR
+    subgraph Login["Admin Login"]
+        L1["POST /api/admin/login\n{ email, password }"] --> L2["bcrypt.checkpw"]
+        L2 --> L3["Generate JWT\nHS256, 24h"]
+        L3 --> L4["Return token\nStore in localStorage"]
+    end
+
+    subgraph Request["Protected Request"]
+        P1["Any /api/admin/* \nBearer token"] --> P2["jwt.decode\nVerify signature"]
+        P2 --> P3["Inject payload\ninto handler"]
+    end

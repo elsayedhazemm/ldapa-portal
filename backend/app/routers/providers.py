@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
@@ -12,6 +11,9 @@ from app.services.csv_importer import parse_csv
 
 router = APIRouter(prefix="/api/admin/providers", tags=["providers"])
 
+# Fields that are stored as integer booleans in the DB
+_BOOL_FIELDS = {"sliding_scale", "ld_adhd_specialty", "learning_difference_support", "adhd_support"}
+
 
 def _to_response(p: dict) -> ProviderResponse:
     return ProviderResponse(**p)
@@ -21,13 +23,13 @@ def _to_response(p: dict) -> ProviderResponse:
 async def list_providers(
     search: str = "",
     status: str = "",
-    service_type: str = "",
+    profession: str = "",
     city: str = "",
     page: int = 1,
     per_page: int = 20,
     _admin: dict = Depends(require_admin),
 ):
-    providers, total = await get_all_providers(search, status, service_type, city, page, per_page)
+    providers, total = await get_all_providers(search, status, profession, city, page, per_page)
     return {
         "providers": [_to_response(p) for p in providers],
         "total": total,
@@ -50,21 +52,23 @@ async def create_provider(data: ProviderCreate, _admin: dict = Depends(require_a
     try:
         provider_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
+        dump = data.model_dump()
+
+        columns = list(dump.keys()) + ["id", "created_at", "updated_at"]
+        values = []
+        for k, v in dump.items():
+            if k in _BOOL_FIELDS:
+                values.append(int(v) if v else 0)
+            else:
+                values.append(v)
+        values.extend([provider_id, now, now])
+
+        placeholders = ", ".join("?" for _ in columns)
+        col_names = ", ".join(columns)
+
         await db.execute(
-            """INSERT INTO providers (id, name, organization, service_types, specializations,
-                serves_ages, address, city, state, zip_code, region, cost_tier,
-                insurance_accepted, accepts_medicaid, cost_notes, phone, email, website,
-                description, staff_notes, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                provider_id, data.name, data.organization,
-                json.dumps(data.service_types), json.dumps(data.specializations),
-                json.dumps(data.serves_ages), data.address, data.city, data.state,
-                data.zip_code, data.region, data.cost_tier,
-                int(data.insurance_accepted), int(data.accepts_medicaid),
-                data.cost_notes, data.phone, data.email, data.website,
-                data.description, data.staff_notes, now, now,
-            ),
+            f"INSERT INTO providers ({col_names}) VALUES ({placeholders})",
+            tuple(values),
         )
         await db.commit()
         provider = await get_provider_by_id(provider_id)
@@ -86,9 +90,7 @@ async def update_provider(
         updates = {}
         for field, value in data.model_dump(exclude_unset=True).items():
             if value is not None:
-                if field in ("service_types", "specializations", "serves_ages"):
-                    updates[field] = json.dumps(value)
-                elif field in ("insurance_accepted", "accepts_medicaid"):
+                if field in _BOOL_FIELDS:
                     updates[field] = int(value)
                 else:
                     updates[field] = value
@@ -205,29 +207,37 @@ async def import_confirm(body: dict, _admin: dict = Depends(require_admin)):
     providers = body.get("providers", [])
     db = await get_db()
     try:
+        columns = [
+            "id", "first_name", "last_name", "name", "listing_type", "profession_name",
+            "services", "training", "credentials", "license",
+            "address", "city", "state", "state_code", "zip_code", "lat", "lon",
+            "age_range_served", "grades_offered",
+            "price_per_visit", "sliding_scale", "insurance_accepted",
+            "ld_adhd_specialty", "learning_difference_support", "adhd_support",
+            "student_body_type", "total_size", "average_class_size", "religion",
+            "phone", "email", "website", "profile_url",
+            "created_at", "updated_at",
+        ]
+        placeholders = ", ".join("?" for _ in columns)
+        col_names = ", ".join(columns)
+
         imported = 0
+        now = datetime.now(timezone.utc).isoformat()
         for p in providers:
-            provider_id = str(uuid.uuid4())
-            now = datetime.now(timezone.utc).isoformat()
+            provider_id = p.get("id") or str(uuid.uuid4())
+            values = []
+            for col in columns:
+                if col == "id":
+                    values.append(provider_id)
+                elif col in ("created_at", "updated_at"):
+                    values.append(now)
+                elif col in _BOOL_FIELDS:
+                    values.append(int(p.get(col, 0) or 0))
+                else:
+                    values.append(p.get(col))
             await db.execute(
-                """INSERT INTO providers (id, name, organization, service_types, specializations,
-                    serves_ages, address, city, state, zip_code, region, cost_tier,
-                    insurance_accepted, accepts_medicaid, cost_notes, phone, email, website,
-                    description, staff_notes, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    provider_id, p["name"], p.get("organization"),
-                    json.dumps(p.get("service_types", [])),
-                    json.dumps(p.get("specializations", [])),
-                    json.dumps(p.get("serves_ages", [])),
-                    p.get("address"), p["city"], p.get("state", "PA"),
-                    p.get("zip_code"), p.get("region"), p["cost_tier"],
-                    int(p.get("insurance_accepted", False)),
-                    int(p.get("accepts_medicaid", False)),
-                    p.get("cost_notes"), p.get("phone"), p.get("email"),
-                    p.get("website"), p.get("description"), p.get("staff_notes"),
-                    now, now,
-                ),
+                f"INSERT INTO providers ({col_names}) VALUES ({placeholders})",
+                tuple(values),
             )
             imported += 1
         await db.commit()

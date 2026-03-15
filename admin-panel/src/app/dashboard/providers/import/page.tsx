@@ -5,9 +5,8 @@ import { importPreview, importConfirm } from "@/lib/api";
 
 interface ParsedProvider {
   name: string;
-  city: string;
-  service_types: string[];
-  cost_tier: string;
+  profession_name: string;
+  city: string | null;
   [key: string]: unknown;
 }
 
@@ -96,11 +95,11 @@ export default function ImportPage() {
               id="csv-upload"
             />
             <label htmlFor="csv-upload" className="cursor-pointer">
-              <div className="text-4xl mb-3">📄</div>
+              <div className="text-4xl mb-3">&#128196;</div>
               <p className="text-sm font-medium text-gray-700">
                 {file ? file.name : "Click to upload CSV file"}
               </p>
-              <p className="mt-1 text-xs text-gray-400">CSV format with headers</p>
+              <p className="mt-1 text-xs text-gray-400">LDAPA directory export CSV format</p>
             </label>
           </div>
           {file && (
@@ -113,9 +112,8 @@ export default function ImportPage() {
             </button>
           )}
           <div className="mt-6 rounded-lg bg-gray-50 p-4 text-xs text-gray-500">
-            <p className="font-medium mb-1">Expected CSV columns:</p>
-            <p>name, organization, service_types, specializations, serves_ages, address, city, state, zip_code, region, cost_tier, insurance_accepted, accepts_medicaid, cost_notes, phone, email, website, description</p>
-            <p className="mt-2">Array fields (service_types, specializations, serves_ages) should be comma-separated within the cell.</p>
+            <p className="font-medium mb-1">Supported format:</p>
+            <p>LDAPA directory CSV export with columns: first_name, last_name, profession_name, address1, state_code, zip_code, services, training, phone_number, Email, website, etc.</p>
           </div>
         </div>
       )}
@@ -125,7 +123,7 @@ export default function ImportPage() {
           {errors.length > 0 && (
             <div className="mb-4 rounded-lg bg-red-50 p-4">
               <h3 className="text-sm font-medium text-red-800">Errors ({errors.length})</h3>
-              <ul className="mt-1 text-xs text-red-700 space-y-1">
+              <ul className="mt-1 text-xs text-red-700 space-y-1 max-h-40 overflow-y-auto">
                 {errors.map((e, i) => <li key={i}>{e}</li>)}
               </ul>
             </div>
@@ -133,8 +131,9 @@ export default function ImportPage() {
           {warnings.length > 0 && (
             <div className="mb-4 rounded-lg bg-yellow-50 p-4">
               <h3 className="text-sm font-medium text-yellow-800">Warnings ({warnings.length})</h3>
-              <ul className="mt-1 text-xs text-yellow-700 space-y-1">
-                {warnings.map((w, i) => <li key={i}>{w}</li>)}
+              <ul className="mt-1 text-xs text-yellow-700 space-y-1 max-h-40 overflow-y-auto">
+                {warnings.slice(0, 20).map((w, i) => <li key={i}>{w}</li>)}
+                {warnings.length > 20 && <li>... and {warnings.length - 20} more</li>}
               </ul>
             </div>
           )}
@@ -149,20 +148,25 @@ export default function ImportPage() {
                 <thead className="border-b bg-gray-50">
                   <tr>
                     <th className="px-4 py-2 text-left font-medium text-gray-600">Name</th>
+                    <th className="px-4 py-2 text-left font-medium text-gray-600">Type</th>
                     <th className="px-4 py-2 text-left font-medium text-gray-600">City</th>
-                    <th className="px-4 py-2 text-left font-medium text-gray-600">Services</th>
-                    <th className="px-4 py-2 text-left font-medium text-gray-600">Cost</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {valid.map((p, i) => (
+                  {valid.slice(0, 50).map((p, i) => (
                     <tr key={i} className="border-b border-gray-100">
                       <td className="px-4 py-2 text-gray-900">{p.name}</td>
-                      <td className="px-4 py-2 text-gray-600">{p.city}</td>
-                      <td className="px-4 py-2 text-gray-600">{p.service_types.join(", ")}</td>
-                      <td className="px-4 py-2 text-gray-600">{p.cost_tier}</td>
+                      <td className="px-4 py-2 text-gray-600">{(p.profession_name || "").replace(/_/g, " ")}</td>
+                      <td className="px-4 py-2 text-gray-600">{p.city || "—"}</td>
                     </tr>
                   ))}
+                  {valid.length > 50 && (
+                    <tr>
+                      <td colSpan={3} className="px-4 py-2 text-center text-gray-400 text-xs">
+                        ... and {valid.length - 50} more
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -185,7 +189,7 @@ export default function ImportPage() {
 
       {step === "done" && importResult && (
         <div className="max-w-lg text-center py-12">
-          <div className="text-5xl mb-4">✅</div>
+          <div className="text-5xl mb-4">&#9989;</div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">Import Complete</h2>
           <p className="text-gray-600 mb-6">
             {importResult.imported} providers imported, {importResult.skipped} skipped.
