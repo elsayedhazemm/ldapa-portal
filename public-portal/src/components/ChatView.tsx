@@ -225,7 +225,7 @@ export function ChatView() {
 
       {/* Header */}
       <header className="bg-white border-b border-blue-100 shadow-sm flex-shrink-0">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
               <span className="text-white text-lg font-bold">L</span>
@@ -238,13 +238,13 @@ export function ChatView() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.push("/")}
-              className="border-2 border-gray-300 hover:border-blue-400 hover:bg-blue-50 text-gray-700 font-semibold rounded-lg px-4 py-2 flex items-center gap-2 transition">
+              className="border-2 border-gray-300 hover:border-blue-400 hover:bg-blue-50 text-gray-700 font-semibold rounded-lg px-2 sm:px-4 py-2 flex items-center gap-1 sm:gap-2 text-sm sm:text-base transition">
               <ArrowLeft className="w-4 h-4" />
               Change Role
             </button>
             <button
               onClick={() => { setMessages([]); setSessionId(null); }}
-              className="border-2 border-gray-300 hover:border-blue-400 hover:bg-blue-50 text-gray-700 font-semibold rounded-lg px-4 py-2 flex items-center gap-2 transition">
+              className="border-2 border-gray-300 hover:border-blue-400 hover:bg-blue-50 text-gray-700 font-semibold rounded-lg px-2 sm:px-4 py-2 flex items-center gap-1 sm:gap-2 text-sm sm:text-base transition">
               <RotateCcw className="w-4 h-4" />
               Start Over
             </button>
@@ -261,7 +261,7 @@ export function ChatView() {
         </aside>
 
         {/* Chat */}
-        <main className="flex-1 flex flex-col max-w-4xl mx-auto w-full">
+        <main className="flex-1 flex flex-col w-full">
 
           {/* Disclaimer */}
           <div className="bg-blue-50 border-b-2 border-blue-200 px-6 py-3 flex-shrink-0">
@@ -275,9 +275,9 @@ export function ChatView() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-6 py-6">
-            <div className="space-y-6">
+            <div className="space-y-6 min-h-full flex flex-col justify-center">
               {messages.length === 0 && !isLoading && (
-                <div className="text-center py-16">
+                <div className="flex flex-col items-center justify-center h-full text-center py-8">
                   <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100">
                     <span className="text-3xl">💬</span>
                   </div>
@@ -294,7 +294,7 @@ export function ChatView() {
                 <div key={message.id}>
                   {message.role === "user" ? (
                     <div className="flex justify-end">
-                      <div className="bg-blue-400 text-white rounded-2xl rounded-tr-sm px-6 py-4 max-w-2xl shadow-sm">
+                      <div className="bg-blue-400 text-white rounded-2xl rounded-tr-sm px-4 sm:px-6 py-3 sm:py-4 max-w-[90%] sm:max-w-2xl shadow-sm">
                         <p className="text-lg leading-relaxed">{message.content}</p>
                       </div>
                     </div>
@@ -302,7 +302,7 @@ export function ChatView() {
                     <NoMatchState />
                   ) : (
                     <div className="flex justify-start">
-                      <div className="bg-white rounded-2xl rounded-tl-sm px-6 py-5 max-w-2xl shadow-md border border-gray-100">
+                      <div className="bg-white rounded-2xl rounded-tl-sm px-4 sm:px-6 py-4 sm:py-5 max-w-[90%] sm:max-w-2xl shadow-md border border-gray-100">
                         <div className="space-y-3">
                           {(() => {
                             const parts = message.content.split(" - ").map(p => p.trim()).filter(p => p.length > 0);
@@ -428,7 +428,7 @@ export function ChatView() {
           {/* Quick Actions */}
           <div className="border-t border-blue-100 bg-white px-6 py-4 flex-shrink-0">
             <p className="text-base font-semibold text-gray-700 mb-3">Quick Actions</p>
-            <div className="flex gap-3 overflow-x-auto pb-2">
+            <div className="flex gap-3 overflow-x-auto pb-2 flex-nowrap">
               {getQuickActions().map((action, index) => {
                 const Icon = action.icon;
                 return (
@@ -446,7 +446,7 @@ export function ChatView() {
 
           {/* Input Bar */}
           <div className="border-t border-blue-100 bg-white px-6 py-5 flex-shrink-0">
-            <div className="flex gap-3 mb-4">
+            <div className="flex gap-3 overflow-x-auto pb-1 mb-4 flex-nowrap">
               {["Find a Provider", "General Info", "Legal & Eval Info"].map((label) => (
                 <button
                   key={label}
@@ -457,8 +457,8 @@ export function ChatView() {
               ))}
             </div>
 
-            <div className="flex gap-3 items-end">
-              <div className="w-48">
+            <div className="flex flex-row gap-3 items-end">
+              <div className="w-48 flex-shrink-0">
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                   Location (Optional)
                 </label>
