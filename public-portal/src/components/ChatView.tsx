@@ -125,7 +125,7 @@ export function ChatView() {
         content: m.content,
       }));
 
-      const response = await sendChatMessage(text, history, sessionId || undefined);
+      const response = await sendChatMessage(userType ? `[User is seeking help for: ${roleLabel}] ${text}` : text, history, sessionId || undefined);
       setSessionId(response.session_id);
 
       const assistantMsg: DisplayMessage = {
@@ -151,31 +151,34 @@ export function ChatView() {
     }
   }, [inputValue, isLoading, messages, sessionId]);
 
-  // Leading question builder for quick action buttons
+  // Leading questions builder for quick action buttons
   const buildLeadingMessage = (actionLabel: string): string => {
     const lower = actionLabel.toLowerCase();
-    const role = roleLabel;
 
-    if (lower.includes("tutor")) {
-      return `I'm looking for a tutor for ${role}. Before you suggest options, could you ask me a few questions to help find the right match? For example, location, age, subject area, and budget.`;
+    if (userType === "myself") {
+      if (lower.includes("tutor")) return `I'm looking for a tutor for myself.`;
+      if (lower.includes("reading")) return `I need help with reading for myself.`;
+      if (lower.includes("evaluation")) return `I'd like to get an evaluation for myself.`;
+      if (lower.includes("workplace") || lower.includes("college")) return `I need help with accommodations for myself.`;
+      if (lower.includes("provider")) return `I'm looking for a service provider for myself.`;
     }
-    if (lower.includes("evaluation")) {
-      return `I'd like to get an evaluation for ${role}. Could you ask me some questions first to understand the situation better — like age, specific concerns, and location?`;
+
+    if (userType === "child") {
+      if (lower.includes("tutor")) return `I'm a parent looking for a tutor for my child.`;
+      if (lower.includes("reading")) return `I need help with reading for my child.`;
+      if (lower.includes("evaluation")) return `I'd like to get an evaluation for my child.`;
+      if (lower.includes("iep") || lower.includes("504")) return `I need help with an IEP or 504 Plan for my child.`;
+      if (lower.includes("provider")) return `I'm looking for a service provider for my child.`;
     }
-    if (lower.includes("iep") || lower.includes("504")) {
-      return `I need help with an IEP or 504 Plan for ${role}. Could you ask me a few questions to understand where we are in the process and what kind of help we need?`;
+
+    if (userType === "other") {
+      if (lower.includes("tutor")) return `I'm looking for a tutor for someone I support.`;
+      if (lower.includes("reading")) return `I need reading support for someone I'm helping.`;
+      if (lower.includes("evaluation")) return `I'd like to get an evaluation for someone I support.`;
+      if (lower.includes("provider")) return `I'm looking for a service provider for someone I support.`;
     }
-    if (lower.includes("reading") || lower.includes("dyslexia")) {
-      return `I'm looking for reading support for ${role}. Before suggesting resources, could you ask me about the specific challenges, age, and location?`;
-    }
-    if (lower.includes("workplace") || lower.includes("college") || lower.includes("accommodation")) {
-      return `I need help with workplace or college accommodations for ${role}. Could you ask me a few questions first — like the type of environment, specific challenges, and what accommodations have been tried?`;
-    }
-    if (lower.includes("provider")) {
-      return `I'm looking for a service provider for ${role}. Could you ask me a few questions to narrow it down — like location, type of service needed, age, and budget?`;
-    }
-    // fallback
-    return `I'm looking for help for ${role} regarding: ${actionLabel}. Could you ask me a few questions to better understand the situation before suggesting resources?`;
+
+    return actionLabel;
   };
 
   const handleFeedback = async (messageId: string, rating: "up" | "down") => {
@@ -300,8 +303,21 @@ export function ChatView() {
                   ) : (
                     <div className="flex justify-start">
                       <div className="bg-white rounded-2xl rounded-tl-sm px-6 py-5 max-w-2xl shadow-md border border-gray-100">
-                        <p className="text-lg text-gray-800 leading-relaxed mb-4">{message.content}</p>
-
+                        <div className="space-y-3">
+                          {(() => {
+                            const parts = message.content.split(" - ").map(p => p.trim()).filter(p => p.length > 0);
+                            return parts.map((part, i) =>
+                              i === 0 ? (
+                                <p key={i} className="text-lg text-gray-800 leading-relaxed">{part}</p>
+                              ) : (
+                                <div key={i} className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+                                  <span className="text-blue-500 font-bold mt-0.5">→</span>
+                                  <p className="text-base text-gray-800 leading-relaxed">{part}</p>
+                                </div>
+                              )
+                            );
+                          })()}
+                        </div>
                         {message.escalate && (
                           <div className="my-3 rounded-lg border-2 border-amber-300 bg-amber-50 p-4">
                             <div className="flex items-start gap-3">
