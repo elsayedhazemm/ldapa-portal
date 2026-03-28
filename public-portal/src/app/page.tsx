@@ -65,7 +65,7 @@ export default function LandingPage() {
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-lg font-bold text-white">
               L
             </div>
-            <span className="text-xl font-bold text-gray-900">LDAPA</span>
+            <span className="text-xl font-bold text-gray-900">LDA OF PA</span>
           </div>
           <Link
             href="/chat"
@@ -83,7 +83,7 @@ export default function LandingPage() {
             Find Learning Disability Support in Pennsylvania
           </h1>
           <p className="mb-8 text-lg text-gray-600">
-            LDAPA&apos;s intelligent guide helps you understand learning
+            LDA OF PA&apos;s intelligent guide helps you understand learning
             disabilities, navigate the system, and connect with verified
             providers — all in plain language.
           </p>
@@ -149,10 +149,10 @@ export default function LandingPage() {
       <section className="px-4 py-16">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="mb-4 text-2xl font-bold text-gray-900">
-            About LDAPA
+            About LDA OF PA
           </h2>
           <p className="mb-4 text-gray-600">
-            The Learning Disabilities Association of Pennsylvania (LDAPA) is
+            The Learning Disabilities Association of Pennsylvania (LDA OF PA) is
             dedicated to helping individuals with learning disabilities and
             their families. We provide resources, advocacy, and support to
             ensure everyone has access to the help they need.
@@ -173,7 +173,7 @@ export default function LandingPage() {
               <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-600 text-sm font-bold text-white">
                 L
               </div>
-              <span className="font-semibold text-gray-900">LDAPA</span>
+              <span className="font-semibold text-gray-900">LDA OF PA</span>
             </div>
             <div className="text-sm text-gray-500">
               Contact:{" "}

@@ -8,8 +8,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "LDAPA Admin Panel",
-  description: "Admin dashboard for managing the LDAPA provider directory",
+  title: "LDA OF PA Admin Panel",
+  description: "Admin dashboard for managing the LDA OF PA provider directory",
 };
 
 export default function RootLayout({

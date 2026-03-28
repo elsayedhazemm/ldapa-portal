@@ -34,7 +34,7 @@ export default function LoginPage() {
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-xl font-bold text-white">
             L
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">LDAPA Admin</h1>
+          <h1 className="text-2xl font-bold text-gray-900">LDA OF PA Admin</h1>
           <p className="mt-1 text-sm text-gray-500">Sign in to manage the provider directory</p>
         </div>
 

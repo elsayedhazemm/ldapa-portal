@@ -117,9 +117,9 @@ function EscalationCard() {
       <div className="flex items-start gap-3">
         <span className="text-2xl">⚠️</span>
         <div>
-          <h4 className="font-semibold text-amber-900">Contact LDAPA Directly</h4>
+          <h4 className="font-semibold text-amber-900">Contact LDA OF PA Directly</h4>
           <p className="mt-1 text-sm text-amber-800">
-            This is something best handled by a person — here&apos;s how to reach LDAPA directly.
+            This is something best handled by a person — here&apos;s how to reach LDA OF PA directly.
           </p>
           <div className="mt-3 space-y-1 text-sm">
             <p><span className="font-medium">Phone:</span> (412) 555-1234</p>
@@ -245,7 +245,7 @@ function ChatPageInner() {
         id: `error-${Date.now()}`,
         role: "assistant",
         content:
-          "I'm sorry, I'm having trouble connecting right now. Please try again in a moment, or contact LDAPA directly at info@ldapa.org.",
+          "I'm sorry, I'm having trouble connecting right now. Please try again in a moment, or contact LDA OF PA directly at info@ldapa.org.",
         feedback: null,
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -292,7 +292,7 @@ function ChatPageInner() {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white">
             L
           </div>
-          <span className="text-lg font-bold text-gray-900">LDAPA</span>
+          <span className="text-lg font-bold text-gray-900">LDA OF PA</span>
         </Link>
         <button
           onClick={handleReset}
@@ -311,7 +311,7 @@ function ChatPageInner() {
                 <span className="text-3xl">💬</span>
               </div>
               <h2 className="mb-2 text-xl font-semibold text-gray-900">
-                Welcome to LDAPA Chat
+                Welcome to LDA OF PA Chat
               </h2>
               <p className="mx-auto max-w-md text-gray-500">
                 Ask me anything about learning disabilities, evaluations, IEPs,
