@@ -12,7 +12,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="LDAPA Portal API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="LDA of PA Portal API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

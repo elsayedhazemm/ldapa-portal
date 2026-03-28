@@ -8,9 +8,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "LDAPA - Learning Disabilities Support Portal",
+  title: "LDA of PA - Learning Disabilities Support Portal",
   description:
-    "Get guidance and find learning disability support providers in Pennsylvania. Powered by LDAPA.",
+    "Get guidance and find learning disability support providers in Pennsylvania. Powered by LDA of PA.",
 };
 
 export default function RootLayout({

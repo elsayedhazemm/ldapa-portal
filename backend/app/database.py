@@ -50,7 +50,7 @@ async def init_db():
                     "admin1",
                     "admin@ldapa.org",
                     "$2b$12$UztW.0/LOix.pUQCWUsX6uEhrePdvnDf2WgXr9CZebWSvrr8x8JNS",
-                    "LDAPA Admin",
+                    "LDA of PA Admin",
                 ),
             )
             await db.commit()

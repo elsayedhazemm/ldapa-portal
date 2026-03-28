@@ -99,7 +99,7 @@ export default function ImportPage() {
               <p className="text-sm font-medium text-gray-700">
                 {file ? file.name : "Click to upload CSV file"}
               </p>
-              <p className="mt-1 text-xs text-gray-400">LDAPA directory export CSV format</p>
+              <p className="mt-1 text-xs text-gray-400">LDA of PA directory export CSV format</p>
             </label>
           </div>
           {file && (
@@ -113,7 +113,7 @@ export default function ImportPage() {
           )}
           <div className="mt-6 rounded-lg bg-gray-50 p-4 text-xs text-gray-500">
             <p className="font-medium mb-1">Supported format:</p>
-            <p>LDAPA directory CSV export with columns: first_name, last_name, profession_name, address1, state_code, zip_code, services, training, phone_number, Email, website, etc.</p>
+            <p>LDA of PA directory CSV export with columns: first_name, last_name, profession_name, address1, state_code, zip_code, services, training, phone_number, Email, website, etc.</p>
           </div>
         </div>
       )}

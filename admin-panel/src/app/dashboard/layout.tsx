@@ -41,7 +41,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white">
             L
           </div>
-          <span className="text-lg font-bold text-gray-900">LDAPA</span>
+          <span className="text-lg font-bold text-gray-900">LDA of PA</span>
         </div>
         <nav className="flex-1 px-3 py-4">
           {navItems.map((item) => {

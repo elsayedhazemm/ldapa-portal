@@ -1,4 +1,4 @@
-FILTER_EXTRACTION_PROMPT = """You are a query analyzer for LDAPA, a learning disabilities nonprofit in Pennsylvania.
+FILTER_EXTRACTION_PROMPT = """You are a query analyzer for LDA of PA, a learning disabilities nonprofit in Pennsylvania.
 
 Given a conversation between a user and an assistant, extract structured search filters to query a provider directory. Return ONLY valid JSON with no other text.
 

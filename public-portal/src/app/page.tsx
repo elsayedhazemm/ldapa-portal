@@ -83,9 +83,9 @@ export default function UserTypeSelection() {
 
           <div className="text-center mt-12">
             <p className="text-lg text-gray-600">
-              Questions? Contact LDAPA directly at{" "}
-              <a href="mailto:info@ldapa.org" className="text-blue-500 underline hover:text-blue-600">
-                info@ldapa.org
+              Questions? Contact LDA of PA directly at{" "}
+              <a href="mailto:info@ldaofpa.org" className="text-blue-500 underline hover:text-blue-600">
+                info@ldaofpa.org
               </a>
             </p>
           </div>

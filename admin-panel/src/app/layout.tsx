@@ -5,7 +5,7 @@ import "./globals.css";
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "LDAPA Admin Panel",
+  title: "LDA of PA Admin Panel",
   description: "Provider Directory Admin",
 };
 

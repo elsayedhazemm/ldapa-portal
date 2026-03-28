@@ -221,13 +221,13 @@ def _fallback_response(conversation_history: list[dict], provider_context: str) 
     if provider_context == "_ESCALATE_":
         response = (
             "I can see you're going through a really difficult time, and I want to make sure you get the right support. "
-            "Please reach out to LDAPA directly at their main office, or if this is an emergency, please call 911 or the "
+            "Please reach out to LDA of PA directly at their main office, or if this is an emergency, please call 911 or the "
             "988 Suicide & Crisis Lifeline (call or text 988). You're not alone, and help is available."
         )
     elif provider_context and provider_context.strip() and provider_context != "No matching providers found in the directory.":
         response = "Thank you for reaching out! Based on what you've told me, here are some resources that might help.\n\n[PROVIDERS]\n\nWould you like to know more about any of these providers, or is there something else I can help you with?"
     else:
-        response = "Thank you for reaching out to LDAPA! I'd love to help you find the right support. Could you tell me a bit more about what you're looking for? For example:\n\n- Are you looking for an evaluation, tutoring, therapy, advocacy, or legal help?\n- What area of Pennsylvania are you in?\n- Is this for a child, teen, or adult?\n\nThe more details you share, the better I can help match you with the right resources."
+        response = "Thank you for reaching out to LDA of PA! I'd love to help you find the right support. Could you tell me a bit more about what you're looking for? For example:\n\n- Are you looking for an evaluation, tutoring, therapy, advocacy, or legal help?\n- What area of Pennsylvania are you in?\n- Is this for a child, teen, or adult?\n\nThe more details you share, the better I can help match you with the right resources."
 
     if is_first:
         response += "\n\nJust so you know — I provide general information to help you get started, not professional diagnosis or legal advice. For specific guidance, connecting with a qualified professional is always a good idea."
