@@ -8,20 +8,22 @@ export interface ChatMessage {
 export interface ProviderCard {
   id: string;
   name: string;
-  organization: string | null;
-  service_types: string[];
-  city: string;
+  profession_name: string;
+  services: string | null;
+  training: string | null;
+  city: string | null;
+  state_code: string;
   zip_code: string | null;
-  cost_tier: string;
+  price_per_visit: string | null;
+  sliding_scale: boolean;
+  insurance_accepted: string | null;
+  age_range_served: string | null;
   phone: string | null;
   email: string | null;
   website: string | null;
-  description: string | null;
-  specializations: string[];
-  serves_ages: string[];
-  insurance_accepted: boolean;
-  accepts_medicaid: boolean;
-  cost_notes: string | null;
+  credentials: string | null;
+  listing_type: string | null;
+  grades_offered: string | null;
 }
 
 export interface ChatResponse {

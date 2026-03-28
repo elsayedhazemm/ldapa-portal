@@ -52,9 +52,12 @@ async def chat(request: ChatRequest):
 
         # Check for escalation or insufficient info
         escalate = filters.get("escalate", False)
-        needs_more_info = filters.get("needs_more_info", False)
+        # After 3+ user turns, never block on needs_more_info — force a search attempt
+        user_turn_count = sum(1 for m in history if m["role"] == "user")
+        needs_more_info = filters.get("needs_more_info", False) and user_turn_count < 3
         providers_data = []
         provider_cards = []
+        broadened = False
 
         if escalate:
             # Mark session as escalated
@@ -66,25 +69,27 @@ async def chat(request: ChatRequest):
             pass
         elif filters.get("needs_providers", False):
             # Query database for matching providers (reuse existing db connection)
-            providers_data = await search_providers(filters, db=db)
+            providers_data, broadened = await search_providers(filters, db=db)
             provider_cards = [
                 ProviderCard(
                     id=p["id"],
                     name=p["name"],
-                    organization=p.get("organization"),
-                    service_types=p.get("service_types", []),
-                    city=p.get("city", ""),
+                    profession_name=p.get("profession_name", ""),
+                    services=p.get("services"),
+                    training=p.get("training"),
+                    city=p.get("city"),
+                    state_code=p.get("state_code", "PA"),
                     zip_code=p.get("zip_code"),
-                    cost_tier=p.get("cost_tier", "standard"),
+                    price_per_visit=p.get("price_per_visit"),
+                    sliding_scale=p.get("sliding_scale", False),
+                    insurance_accepted=p.get("insurance_accepted"),
+                    age_range_served=p.get("age_range_served"),
                     phone=p.get("phone"),
                     email=p.get("email"),
                     website=p.get("website"),
-                    description=p.get("description"),
-                    specializations=p.get("specializations", []),
-                    serves_ages=p.get("serves_ages", []),
-                    insurance_accepted=p.get("insurance_accepted", False),
-                    accepts_medicaid=p.get("accepts_medicaid", False),
-                    cost_notes=p.get("cost_notes"),
+                    credentials=p.get("credentials"),
+                    listing_type=p.get("listing_type"),
+                    grades_offered=p.get("grades_offered"),
                 )
                 for p in providers_data
             ]
@@ -97,7 +102,7 @@ async def chat(request: ChatRequest):
         elif not filters.get("needs_providers", False):
             provider_context = "No provider search needed. The user is asking a general question — answer it directly."
         else:
-            provider_context = format_provider_context(providers_data)
+            provider_context = format_provider_context(providers_data, broadened=broadened)
         response_text = await generate_response(history, provider_context)
 
         # Update location if extracted

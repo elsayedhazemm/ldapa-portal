@@ -1,0 +1,37 @@
+flowchart TD
+    A["POST /api/chat\n{ message, history, session_id }"] --> B["Rate Limit Check\n30 req / 60 sec"]
+    B --> C["Session Management\nCreate if new"]
+    C --> D["Build Conversation\nHistory Array"]
+
+    D --> E{{"LLM CALL 1\nFilter Extraction\ngpt-5-mini, JSON mode"}}
+
+    E --> F["Validate & Coerce\nfilter values"]
+
+    F --> G{"Route by\nintent"}
+    G -->|"escalate"| H["ESCALATE\nCrisis detected"]
+    G -->|"needs_more_info\n& < 3 turns"| I["NEEDS MORE INFO\nSkip search"]
+    G -->|"needs_providers"| J["PROVIDER SEARCH"]
+
+    J --> J1{"ZIP + geo\navailable?"}
+    J1 -->|Yes| J2["Geo: 30mi"]
+    J2 -->|miss| J3["Geo: 75mi"]
+    J1 -->|No| J4["Pass 1: strict"]
+    J3 -->|miss| J4
+    J4 -->|miss| J5["Pass 2: relax age"]
+    J5 -->|miss| J6["Pass 3: relax city"]
+    J6 -->|miss| J7["Pass 4: relax both"]
+
+    J2 -->|hit| K
+    J3 -->|hit| K
+    J4 -->|hit| K
+    J5 -->|hit| K
+    J6 -->|hit| K
+    J7 --> K
+
+    H --> K["Build Provider\nContext String"]
+    I --> K
+
+    K --> L{{"LLM CALL 2\nResponse Generation\ngpt-5-mini"}}
+
+    L --> M["Persist to DB\nMessages + Session"]
+    M --> N["Return ChatResponse\n{ response, providers, escalate }"]
