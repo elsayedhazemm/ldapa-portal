@@ -63,7 +63,7 @@ async def extract_filters(conversation_history: list[dict]) -> dict:
         response = await client.responses.create(
             model=LLM_MODEL,
             input=input_messages,
-            reasoning={"effort": "low"},
+            reasoning={"effort": "medium"},
             text={"format": {"type": "json_object"}},
         )
         text = response.output_text.strip()
@@ -94,7 +94,7 @@ async def generate_response(
         response = await client.responses.create(
             model=LLM_MODEL,
             input=input_messages,
-            reasoning={"effort": "low"},
+            reasoning={"effort": "medium"},
         )
         return response.output_text
     except Exception:
