@@ -42,6 +42,7 @@ Rules:
 - Extract filters from the ENTIRE conversation history, not just the last message
 - Set needs_providers to true ONLY when the user is actively looking for a provider, service, or resource (e.g. "find me a tutor", "I need an evaluation", "where can I get help", "expand the search", "broaden", "look nearby", "virtual is fine"). Do NOT set it to true for general questions like "what is dyslexia?" or "how does an IEP work?"
 - Set needs_more_info to true ONLY when the user wants a provider AND the entire conversation history contains none of: profession type, location, age group, or specialization. If ANY of those can be extracted from the conversation, set needs_more_info to false and search.
+- If the user says they are unsure what they need, don't know where to start, or asks for guidance on choosing the right type of support, set needs_more_info to true and needs_providers to false. The response generator will guide them through structured options step by step.
 - IMPORTANT: If the user says anything like "expand the search", "look elsewhere", "broaden", "virtual is fine", "sure", or is responding to a previous "no results" message — always set needs_providers=true and needs_more_info=false. Use all filters gathered so far from the conversation.
 - IMPORTANT: Never ask for information the user has already provided earlier in the conversation. If location, age, or profession type was given in a prior turn, include it here.
 - Set escalate to true for: self-harm, abuse, crisis, explicit requests for diagnosis or legal determination

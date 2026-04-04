@@ -98,7 +98,12 @@ async def chat(request: ChatRequest):
         if escalate:
             provider_context = "_ESCALATE_"
         elif needs_more_info:
-            provider_context = "Need more information from the user before searching. Ask follow-up questions."
+            # Check if user is unsure/needs guidance vs just missing search details
+            last_msg = request.message.lower()
+            if any(phrase in last_msg for phrase in ["not sure", "don't know", "figure out", "help me", "where to start", "what do i need", "guide"]):
+                provider_context = "The user is unsure what type of support they need. Guide them step-by-step through structured options (evaluation, tutoring, advocacy, therapy) with short explanations for each. Ask one follow-up question to narrow things down."
+            else:
+                provider_context = "Need more information from the user before searching. Ask follow-up questions."
         elif not filters.get("needs_providers", False):
             provider_context = "No provider search needed. The user is asking a general question — answer it directly."
         else:

@@ -15,4 +15,4 @@ if not JWT_SECRET:
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001").split(",")
-LLM_MODEL = os.getenv("LLM_MODEL", "gpt-5-mini")
+LLM_MODEL = "gpt-5.4-mini"

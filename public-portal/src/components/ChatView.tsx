@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Send, RotateCcw, Phone, BookOpen, GraduationCap,
   Users, FileText, Briefcase, ArrowLeft, MapPin, Info,
+  HelpCircle, Scale, School, Heart, ChevronRight,
 } from "lucide-react";
 import { sendChatMessage, submitFeedback, type ChatMessage, type ProviderCard } from "@/lib/api";
 import { ProviderModal } from "./ProviderModal";
@@ -45,42 +46,66 @@ const FOLLOW_UPS: Record<string, string[]> = {
   tutor: [
     "What's the typical cost for a tutor?",
     "Are there online tutoring options?",
-    "How do I know if a tutor is right for us?",
+    "Find me a tutor near me",
   ],
   evaluation: [
     "How long does an evaluation take?",
     "Does insurance cover evaluations?",
-    "What happens after the evaluation?",
+    "Find an evaluator near me",
   ],
   iep: [
     "What's the difference between an IEP and a 504 Plan?",
     "Can I request an IEP meeting anytime?",
-    "What rights do I have in the IEP process?",
+    "Find an advocate to help with my IEP",
   ],
   reading: [
     "What is the Orton-Gillingham method?",
-    "How early should I get help for reading issues?",
-    "Are there apps that can help with reading?",
+    "Find a reading tutor near me",
+    "Should I get an evaluation first?",
   ],
   workplace: [
     "How do I request accommodations at work?",
-    "Does my employer have to keep this confidential?",
     "What accommodations are most common for LD?",
+    "Find a professional who can help",
+  ],
+  therapy: [
+    "What types of therapy help with learning disabilities?",
+    "Does insurance cover therapy?",
+    "Find a therapist near me",
+  ],
+  advocacy: [
+    "What does an educational advocate do?",
+    "What are my child's rights at school?",
+    "Find an advocate near me",
+  ],
+  school: [
+    "What should I look for in a school?",
+    "Are there schools near me for learning differences?",
+    "What grades do these schools serve?",
+  ],
+  unsure: [
+    "I think my child is struggling with reading",
+    "I want to understand my learning disability better",
+    "I need help but don't know where to start",
   ],
   default: [
-    "Can you help me find a local provider?",
+    "Help me find the right type of support",
     "What services does LDA of PA offer?",
-    "How do I get started?",
+    "I'm not sure what I need — can you guide me?",
   ],
 };
 
 function getFollowUps(message: string): string[] {
   const lower = message.toLowerCase();
+  if (lower.includes("not sure") || lower.includes("don't know") || lower.includes("figure out")) return FOLLOW_UPS.unsure;
   if (lower.includes("tutor")) return FOLLOW_UPS.tutor;
-  if (lower.includes("eval") || lower.includes("assess")) return FOLLOW_UPS.evaluation;
+  if (lower.includes("eval") || lower.includes("assess") || lower.includes("diagnos")) return FOLLOW_UPS.evaluation;
   if (lower.includes("iep") || lower.includes("504")) return FOLLOW_UPS.iep;
   if (lower.includes("read") || lower.includes("dyslexia")) return FOLLOW_UPS.reading;
   if (lower.includes("work") || lower.includes("job") || lower.includes("college")) return FOLLOW_UPS.workplace;
+  if (lower.includes("therap") || lower.includes("counsel")) return FOLLOW_UPS.therapy;
+  if (lower.includes("advocat") || lower.includes("legal") || lower.includes("rights")) return FOLLOW_UPS.advocacy;
+  if (lower.includes("school") || lower.includes("program")) return FOLLOW_UPS.school;
   return FOLLOW_UPS.default;
 }
 
@@ -277,16 +302,79 @@ export function ChatView() {
           <div className="flex-1 overflow-y-auto px-6 py-6">
             <div className="space-y-6 min-h-full flex flex-col justify-center">
               {messages.length === 0 && !isLoading && (
-                <div className="flex flex-col items-center justify-center h-full text-center py-8">
+                <div className="flex flex-col items-center text-center py-8">
                   <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100">
                     <span className="text-3xl">💬</span>
                   </div>
                   <h2 className="text-xl font-semibold text-gray-900 mb-2">
                     Welcome to LDA of PA Chat
                   </h2>
-                  <p className="text-gray-500 max-w-md mx-auto">
-                    Ask me anything about learning disabilities, evaluations, IEPs, or finding support providers.
+                  <p className="text-gray-500 max-w-md mx-auto mb-6">
+                    What can we help you with today? Choose a category below or type your own question.
                   </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl">
+                    {[
+                      {
+                        icon: Users,
+                        title: "Diagnosis / Evaluation",
+                        desc: "Get assessed for learning disabilities, ADHD, or other concerns",
+                        msg: "I'd like to learn about getting a diagnosis or evaluation for learning disabilities.",
+                      },
+                      {
+                        icon: GraduationCap,
+                        title: "Tutoring & Academic Support",
+                        desc: "Find specialized tutors for reading, math, or study skills",
+                        msg: "I'm looking for tutoring or academic support for learning disabilities.",
+                      },
+                      {
+                        icon: Scale,
+                        title: "Advocacy & Legal Help",
+                        desc: "Get help with IEPs, 504 plans, or education rights",
+                        msg: "I need help with advocacy or legal support for education rights.",
+                      },
+                      {
+                        icon: Heart,
+                        title: "Therapy & Counseling",
+                        desc: "Connect with therapists who specialize in learning differences",
+                        msg: "I'm interested in therapy or counseling related to learning disabilities.",
+                      },
+                      {
+                        icon: School,
+                        title: "Schools & Programs",
+                        desc: "Find schools or programs designed for students with learning differences",
+                        msg: "I'm looking for schools or programs that support students with learning differences.",
+                      },
+                      {
+                        icon: HelpCircle,
+                        title: "I'm not sure what I need",
+                        desc: "Answer a few questions and we'll help you figure out the right path",
+                        msg: "I'm not sure what kind of help I need. Can you help me figure out the right type of support?",
+                      },
+                    ].map((cat) => {
+                      const Icon = cat.icon;
+                      return (
+                        <button
+                          key={cat.title}
+                          onClick={() => handleSendMessage(buildLeadingMessage(cat.msg))}
+                          className="text-left bg-white border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 rounded-xl p-4 transition group"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 w-10 h-10 bg-blue-100 group-hover:bg-blue-200 rounded-lg flex items-center justify-center transition">
+                              <Icon className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <h3 className="font-semibold text-gray-900 text-sm">{cat.title}</h3>
+                                <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
+                              </div>
+                              <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{cat.desc}</p>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
