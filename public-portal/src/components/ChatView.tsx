@@ -7,6 +7,7 @@ import {
   Users, FileText, Briefcase, ArrowLeft, MapPin, Info,
   HelpCircle, Scale, School, Heart, ChevronRight,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { sendChatMessage, submitFeedback, type ChatMessage, type ProviderCard } from "@/lib/api";
 import { ProviderModal } from "./ProviderModal";
 import { NoMatchState } from "./NoMatchState";
@@ -391,20 +392,15 @@ export function ChatView() {
                   ) : (
                     <div className="flex justify-start">
                       <div className="bg-white rounded-2xl rounded-tl-sm px-4 sm:px-6 py-4 sm:py-5 max-w-[90%] sm:max-w-2xl shadow-md border border-gray-100">
-                        <div className="space-y-3">
-                          {(() => {
-                            const parts = message.content.split(" - ").map(p => p.trim()).filter(p => p.length > 0);
-                            return parts.map((part, i) =>
-                              i === 0 ? (
-                                <p key={i} className="text-lg text-gray-800 leading-relaxed">{part}</p>
-                              ) : (
-                                <div key={i} className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
-                                  <span className="text-blue-500 font-bold mt-0.5">→</span>
-                                  <p className="text-base text-gray-800 leading-relaxed">{part}</p>
-                                </div>
-                              )
-                            );
-                          })()}
+                        <div className="prose prose-sm max-w-none text-gray-800 leading-relaxed
+                          prose-p:my-2 prose-p:text-base prose-p:leading-relaxed
+                          prose-ul:my-2 prose-ul:pl-5 prose-li:my-1 prose-li:text-base
+                          prose-ol:my-2 prose-ol:pl-5
+                          prose-strong:text-gray-900 prose-strong:font-semibold
+                          prose-headings:text-gray-900 prose-headings:font-semibold prose-headings:mt-3 prose-headings:mb-1 prose-headings:text-base
+                          prose-blockquote:border-l-blue-400 prose-blockquote:bg-blue-50 prose-blockquote:rounded-r-lg prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:my-3 prose-blockquote:text-sm prose-blockquote:text-gray-600 prose-blockquote:not-italic
+                        ">
+                          <ReactMarkdown>{message.content.replace(/\[PROVIDERS\]\n?/g, "")}</ReactMarkdown>
                         </div>
                         {message.escalate && (
                           <div className="my-3 rounded-lg border-2 border-amber-300 bg-amber-50 p-4">
@@ -439,16 +435,16 @@ export function ChatView() {
                                   </div>
                                   <div className="space-y-1 mb-3 text-base text-gray-700">
                                     <p><span className="font-semibold">Location:</span> {provider.city}</p>
-                                    <p><span className="font-semibold">Cost:</span> {provider.cost_tier}</p>
+                                    <p><span className="font-semibold">Cost:</span> {provider.price_per_visit || (provider.sliding_scale ? "Sliding scale available" : "Contact for pricing")}</p>
                                   </div>
                                   <button
                                     onClick={() => setSelectedProvider({
                                       id: provider.id,
                                       name: provider.name,
-                                      organization: provider.organization || "",
-                                      serviceType: provider.service_types?.join(", ") || "",
-                                      location: provider.city,
-                                      cost: provider.cost_tier,
+                                      organization: provider.credentials || "",
+                                      serviceType: provider.profession_name || "",
+                                      location: provider.city || "",
+                                      cost: provider.price_per_visit || (provider.sliding_scale ? "Sliding scale" : "Contact for pricing"),
                                       phone: provider.phone || "",
                                       website: provider.website || "",
                                       verified: true,
