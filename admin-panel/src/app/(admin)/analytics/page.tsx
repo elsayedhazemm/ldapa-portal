@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { BarChart3, TrendingUp, Eye, MapPin } from "lucide-react";
+import { useState, useEffect } from "react";
+import { BarChart3, TrendingUp, MessageSquare, Users, ThumbsUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -10,53 +10,65 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line,
 } from "recharts";
-import { mockProviders } from "@/lib/mockData";
+import { getDashboardStats, getChatVolume, getProviders } from "@/lib/api";
 
-const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444"];
+const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
 
 export default function AnalyticsPage() {
-  const [timeRange, setTimeRange] = useState("30");
+  const [timeRange, setTimeRange] = useState("week");
+  const [stats, setStats] = useState<{
+    total_providers: number;
+    verified: number;
+    unverified: number;
+    archived: number;
+    chat_sessions: number;
+    avg_feedback: number;
+    top_themes: string[];
+  } | null>(null);
+  const [chatVolume, setChatVolume] = useState<{ date: string; count: number }[]>([]);
+  const [professionBreakdown, setProfessionBreakdown] = useState<{ name: string; count: number }[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const totalViews = mockProviders.reduce((sum, p) => sum + (p.views || 0), 0);
-  const totalReferrals = mockProviders.reduce((sum, p) => sum + (p.referrals || 0), 0);
-  const avgViews = Math.round(totalViews / mockProviders.length);
-  const avgReferrals = Math.round(totalReferrals / mockProviders.length);
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const [statsData, volumeData] = await Promise.all([
+          getDashboardStats(timeRange),
+          getChatVolume(timeRange),
+        ]);
+        setStats(statsData);
+        setChatVolume(volumeData.data || []);
 
-  const topProviders = [...mockProviders]
-    .sort((a, b) => (b.referrals || 0) - (a.referrals || 0))
-    .slice(0, 5)
-    .map((p) => ({ name: p.name, referrals: p.referrals || 0, views: p.views || 0 }));
+        // Fetch profession breakdown
+        const professions = ["Tutor", "Health_Professional", "Lawyer", "School", "Advocate"];
+        const counts = await Promise.all(
+          professions.map(async (p) => {
+            try {
+              const data = await getProviders({ profession: p, per_page: 1 });
+              return { name: p.replace("_", " "), count: data.total };
+            } catch {
+              return { name: p.replace("_", " "), count: 0 };
+            }
+          })
+        );
+        setProfessionBreakdown(counts.filter((c) => c.count > 0));
+      } catch (e) {
+        console.error("Failed to fetch analytics:", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, [timeRange]);
 
-  const byLocation = mockProviders.reduce((acc, p) => {
-    const location = p.location.split(",")[0].trim();
-    if (!acc[location]) acc[location] = { location, views: 0, referrals: 0, providers: 0 };
-    acc[location].views += p.views || 0;
-    acc[location].referrals += p.referrals || 0;
-    acc[location].providers += 1;
-    return acc;
-  }, {} as Record<string, { location: string; views: number; referrals: number; providers: number }>);
-
-  const locationData = Object.values(byLocation);
-
-  const byServiceType = mockProviders.reduce((acc, p) => {
-    const type = p.serviceType;
-    if (!acc[type]) acc[type] = { name: type, views: 0, referrals: 0, providers: 0 };
-    acc[type].views += p.views || 0;
-    acc[type].referrals += p.referrals || 0;
-    acc[type].providers += 1;
-    return acc;
-  }, {} as Record<string, { name: string; views: number; referrals: number; providers: number }>);
-
-  const serviceTypeData = Object.values(byServiceType).map((item) => ({
-    ...item,
-    name: item.name.charAt(0).toUpperCase() + item.name.slice(1),
-  }));
-
-  const trendData = Array.from({ length: 30 }, (_, i) => ({
-    day: `Day ${30 - i}`,
-    views: Math.floor(Math.random() * 50) + 20,
-    referrals: Math.floor(Math.random() * 20) + 5,
-  })).reverse();
+  if (loading || !stats) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[60vh]">
+        <p className="text-gray-400 text-lg">Loading analytics...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
@@ -65,19 +77,19 @@ export default function AnalyticsPage() {
         <div className="flex items-center justify-between mb-2">
           <div>
             <h1 className="text-3xl font-semibold text-gray-900 flex items-center gap-2">
-              <BarChart3 className="w-8 h-8" />Provider Analytics
+              <BarChart3 className="w-8 h-8" />Analytics
             </h1>
-            <p className="text-gray-600 mt-2">Track provider visibility and engagement through the LLM chat interface</p>
+            <p className="text-gray-600 mt-2">Provider directory and chat engagement metrics</p>
           </div>
           <div className="w-48">
             <label htmlFor="time-range" className="block text-sm font-medium text-gray-700 mb-1">Time Range</label>
             <Select value={timeRange} onValueChange={setTimeRange}>
               <SelectTrigger id="time-range"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="7">Last 7 days</SelectItem>
-                <SelectItem value="30">Last 30 days</SelectItem>
-                <SelectItem value="90">Last 90 days</SelectItem>
-                <SelectItem value="365">Last year</SelectItem>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="week">Last 7 days</SelectItem>
+                <SelectItem value="month">Last 30 days</SelectItem>
+                <SelectItem value="all">All time</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -87,10 +99,10 @@ export default function AnalyticsPage() {
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         {[
-          { label: "Total Views", value: totalViews.toLocaleString(), sub: "Across all providers", color: "bg-blue-100 text-blue-600", Icon: Eye },
-          { label: "Total Referrals", value: totalReferrals.toLocaleString(), sub: "LLM recommendations", color: "bg-green-100 text-green-600", Icon: TrendingUp },
-          { label: "Avg. Views per Provider", value: avgViews, sub: `Based on ${mockProviders.length} providers`, color: "bg-purple-100 text-purple-600", Icon: Eye },
-          { label: "Avg. Referrals per Provider", value: avgReferrals, sub: `Conversion rate: ${Math.round((avgReferrals / avgViews) * 100)}%`, color: "bg-orange-100 text-orange-600", Icon: TrendingUp },
+          { label: "Total Providers", value: stats.total_providers.toLocaleString(), sub: `${stats.verified} verified`, color: "bg-blue-100 text-blue-600", Icon: Users },
+          { label: "Chat Sessions", value: stats.chat_sessions.toLocaleString(), sub: `${timeRange === "all" ? "All time" : `Last ${timeRange === "today" ? "24h" : timeRange === "week" ? "7 days" : "30 days"}`}`, color: "bg-green-100 text-green-600", Icon: MessageSquare },
+          { label: "Avg Feedback", value: `${stats.avg_feedback}/5`, sub: "User satisfaction", color: "bg-purple-100 text-purple-600", Icon: ThumbsUp },
+          { label: "Unverified", value: stats.unverified.toLocaleString(), sub: "Awaiting review", color: "bg-orange-100 text-orange-600", Icon: TrendingUp },
         ].map((stat) => (
           <div key={stat.label} className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center gap-3 mb-4">
@@ -108,109 +120,83 @@ export default function AnalyticsPage() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Views & Referrals Trend</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={trendData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="day" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="views" stroke="#3B82F6" strokeWidth={2} name="Views" />
-              <Line type="monotone" dataKey="referrals" stroke="#10B981" strokeWidth={2} name="Referrals" />
-            </LineChart>
-          </ResponsiveContainer>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Chat Volume</h3>
+          {chatVolume.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={chatVolume}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="count" stroke="#3B82F6" strokeWidth={2} name="Sessions" />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[300px] text-gray-400">
+              No chat data for this period
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Referrals by Service Type</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie data={serviceTypeData} cx="50%" cy="50%" labelLine={false}
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                outerRadius={100} fill="#8884d8" dataKey="referrals">
-                {serviceTypeData.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Providers by Type</h3>
+          {professionBreakdown.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie data={professionBreakdown} cx="50%" cy="50%" labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={100} fill="#8884d8" dataKey="count">
+                  {professionBreakdown.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[300px] text-gray-400">
+              No provider data
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Location Bar Chart */}
+      {/* Provider Status Breakdown */}
       <div className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <MapPin className="w-5 h-5" />Provider Activity by Location
-        </h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Provider Status Breakdown</h3>
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={locationData}>
+          <BarChart data={[
+            { name: "Verified", count: stats.verified },
+            { name: "Unverified", count: stats.unverified },
+            { name: "Archived", count: stats.archived },
+          ]}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="location" tick={{ fontSize: 12 }} />
+            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip />
-            <Legend />
-            <Bar dataKey="views" fill="#3B82F6" name="Views" />
-            <Bar dataKey="referrals" fill="#10B981" name="Referrals" />
+            <Bar dataKey="count" fill="#3B82F6" name="Providers" />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      {/* Top Providers */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <TrendingUp className="w-5 h-5" />Top Performing Providers
-        </h3>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Rank</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Provider Name</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Views</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Referrals</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Conversion</th>
-              </tr>
-            </thead>
-            <tbody>
-              {topProviders.map((provider, index) => (
-                <tr key={provider.name} className="border-b border-gray-200 hover:bg-gray-50">
-                  <td className="py-3 px-4"><Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">#{index + 1}</Badge></td>
-                  <td className="py-3 px-4 font-medium text-gray-900">{provider.name}</td>
-                  <td className="py-3 px-4 text-gray-600">{provider.views.toLocaleString()}</td>
-                  <td className="py-3 px-4 text-gray-600">{provider.referrals.toLocaleString()}</td>
-                  <td className="py-3 px-4"><span className="text-green-700 font-medium">{provider.views > 0 ? Math.round((provider.referrals / provider.views) * 100) : 0}%</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Top Themes */}
+      {stats.top_themes.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Chat Themes</h3>
+          <div className="flex flex-wrap gap-3">
+            {stats.top_themes.map((theme, i) => (
+              <Badge key={i} variant="outline" className="px-4 py-2 text-sm bg-blue-50 text-blue-700 border-blue-200">
+                #{i + 1} {theme}
+              </Badge>
+            ))}
+          </div>
         </div>
-      </div>
-
-      {/* Location Breakdown */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Detailed Location Breakdown</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {locationData.map((loc) => (
-            <div key={loc.location} className="border border-gray-200 rounded-lg p-4">
-              <div className="flex items-start justify-between mb-3">
-                <h4 className="font-semibold text-gray-900">{loc.location}</h4>
-                <Badge variant="outline" className="bg-gray-50 text-gray-700">{loc.providers} {loc.providers === 1 ? "provider" : "providers"}</Badge>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm"><span className="text-gray-600">Views:</span><span className="font-medium text-gray-900">{loc.views.toLocaleString()}</span></div>
-                <div className="flex items-center justify-between text-sm"><span className="text-gray-600">Referrals:</span><span className="font-medium text-gray-900">{loc.referrals.toLocaleString()}</span></div>
-                <div className="flex items-center justify-between text-sm"><span className="text-gray-600">Avg per provider:</span><span className="font-medium text-gray-900">{Math.round(loc.referrals / loc.providers)}</span></div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
 
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-sm text-blue-800">
-          <strong>About Analytics:</strong> These metrics track how often providers are viewed and referred through the LLM chat interface. Use this data to identify high-demand areas and popular services.
+          <strong>About Analytics:</strong> These metrics are derived from real chat sessions and provider directory data. Chat volume tracks active conversations, and feedback reflects user satisfaction ratings.
         </p>
       </div>
     </div>

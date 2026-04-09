@@ -1,63 +1,93 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Users, CheckCircle, Clock, AlertTriangle, Plus, Eye, FileDown, Activity } from "lucide-react";
+import { Users, CheckCircle, Clock, AlertTriangle, Plus, Eye, FileDown, Activity, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getDashboardStats, getRecentSessions } from "@/lib/api";
+
+interface Stats {
+  total_providers: number;
+  verified: number;
+  unverified: number;
+  archived: number;
+  chat_sessions: number;
+  avg_feedback: number;
+  top_themes: string[];
+}
+
+interface Session {
+  id: string;
+  started_at: string;
+  message_count: number;
+  user_location: { city?: string; zip?: string } | null;
+  escalated: boolean;
+  avg_rating: number | null;
+}
 
 export default function DashboardPage() {
-  const stats = [
-    {
-      label: "Total Providers",
-      value: "124",
-      icon: Users,
-      color: "bg-[#92A7C3]/10 text-[#17789C] border-[#92A7C3]/30",
-      bgGradient: "from-[#17789C] to-[#2d7a9e]",
-      iconBg: "bg-gradient-to-br from-[#17789C] to-[#2d7a9e]",
-      change: "+12 this month",
-      changeType: "positive",
-      changeColor: "text-[#17789C]",
-    },
-    {
-      label: "Verified Providers",
-      value: "98",
-      icon: CheckCircle,
-      color: "bg-[#C57B7D]/10 text-[#C57B7D] border-[#C57B7D]/30",
-      bgGradient: "from-[#C57B7D] to-[#d99396]",
-      iconBg: "bg-gradient-to-br from-[#C57B7D] to-[#d99396]",
-      change: "79% of total",
-      changeType: "neutral",
-      changeColor: "text-[#C57B7D]",
-    },
-    {
-      label: "Pending Review",
-      value: "18",
-      icon: Clock,
-      color: "bg-[#A9A850]/10 text-[#A9A850] border-[#A9A850]/30",
-      bgGradient: "from-[#A9A850] to-[#8b8a42]",
-      iconBg: "bg-gradient-to-br from-[#A9A850] to-[#8b8a42]",
-      change: "Needs attention",
-      changeType: "warning",
-      changeColor: "text-[#A9A850]",
-    },
-    {
-      label: "Needs Update",
-      value: "8",
-      icon: AlertTriangle,
-      color: "bg-[#5A5870]/10 text-[#5A5870] border-[#5A5870]/30",
-      bgGradient: "from-[#5A5870] to-[#454356]",
-      iconBg: "bg-gradient-to-br from-[#5A5870] to-[#454356]",
-      change: "Requires action",
-      changeType: "negative",
-      changeColor: "text-[#5A5870]",
-    },
-  ];
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const recentActivity = [
-    { action: "Added new provider", provider: "Dr. Sarah Johnson", time: "2 hours ago", user: "Staff Admin" },
-    { action: "Verified provider", provider: "Maria Rodriguez", time: "5 hours ago", user: "Jane Smith" },
-    { action: "Updated information", provider: "Community Advocacy Center", time: "1 day ago", user: "Staff Admin" },
-    { action: "Flagged for review", provider: "Dr. Michael Chen", time: "2 days ago", user: "John Doe" },
-  ];
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [statsData, sessionsData] = await Promise.all([
+          getDashboardStats("week"),
+          getRecentSessions(1, 5),
+        ]);
+        setStats(statsData);
+        setSessions(sessionsData.sessions || []);
+      } catch (e) {
+        console.error("Failed to fetch dashboard data:", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
+
+  const statCards = stats
+    ? [
+        {
+          label: "Total Providers",
+          value: stats.total_providers.toLocaleString(),
+          icon: Users,
+          color: "bg-[#92A7C3]/10 text-[#17789C] border-[#92A7C3]/30",
+          iconBg: "bg-gradient-to-br from-[#17789C] to-[#2d7a9e]",
+          change: `${stats.verified} verified`,
+          changeColor: "text-[#17789C]",
+        },
+        {
+          label: "Verified Providers",
+          value: stats.verified.toLocaleString(),
+          icon: CheckCircle,
+          color: "bg-[#C57B7D]/10 text-[#C57B7D] border-[#C57B7D]/30",
+          iconBg: "bg-gradient-to-br from-[#C57B7D] to-[#d99396]",
+          change: stats.total_providers > 0 ? `${Math.round((stats.verified / stats.total_providers) * 100)}% of total` : "0%",
+          changeColor: "text-[#C57B7D]",
+        },
+        {
+          label: "Unverified",
+          value: stats.unverified.toLocaleString(),
+          icon: Clock,
+          color: "bg-[#A9A850]/10 text-[#A9A850] border-[#A9A850]/30",
+          iconBg: "bg-gradient-to-br from-[#A9A850] to-[#8b8a42]",
+          change: stats.unverified > 0 ? "Needs attention" : "All clear",
+          changeColor: "text-[#A9A850]",
+        },
+        {
+          label: "Chat Sessions",
+          value: stats.chat_sessions.toLocaleString(),
+          icon: MessageSquare,
+          color: "bg-[#5A5870]/10 text-[#5A5870] border-[#5A5870]/30",
+          iconBg: "bg-gradient-to-br from-[#5A5870] to-[#454356]",
+          change: "Last 7 days",
+          changeColor: "text-[#5A5870]",
+        },
+      ]
+    : [];
 
   return (
     <div className="p-8 bg-gradient-to-br from-slate-50 via-[#92A7C3]/5 to-slate-50 min-h-screen">
@@ -84,24 +114,34 @@ export default function DashboardPage() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <div
-              key={stat.label}
-              className={`bg-white rounded-2xl border-2 p-6 shadow-sm hover:shadow-md transition-all duration-200 ${stat.color}`}
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className={`w-12 h-12 ${stat.iconBg} rounded-xl flex items-center justify-center shadow-lg`}>
-                  <Icon className="w-6 h-6 text-white" aria-hidden="true" />
-                </div>
-              </div>
-              <p className="text-3xl font-bold text-slate-900 mb-1">{stat.value}</p>
-              <p className="text-sm font-semibold text-slate-600 mb-2">{stat.label}</p>
-              <p className={`text-xs font-medium ${stat.changeColor}`}>{stat.change}</p>
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-white rounded-2xl border-2 border-slate-100 p-6 shadow-sm animate-pulse">
+              <div className="w-12 h-12 bg-slate-200 rounded-xl mb-4" />
+              <div className="h-8 bg-slate-200 rounded w-16 mb-2" />
+              <div className="h-4 bg-slate-100 rounded w-24" />
             </div>
-          );
-        })}
+          ))
+        ) : (
+          statCards.map((stat) => {
+            const Icon = stat.icon;
+            return (
+              <div
+                key={stat.label}
+                className={`bg-white rounded-2xl border-2 p-6 shadow-sm hover:shadow-md transition-all duration-200 ${stat.color}`}
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className={`w-12 h-12 ${stat.iconBg} rounded-xl flex items-center justify-center shadow-lg`}>
+                    <Icon className="w-6 h-6 text-white" aria-hidden="true" />
+                  </div>
+                </div>
+                <p className="text-3xl font-bold text-slate-900 mb-1">{stat.value}</p>
+                <p className="text-sm font-semibold text-slate-600 mb-2">{stat.label}</p>
+                <p className={`text-xs font-medium ${stat.changeColor}`}>{stat.change}</p>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* Quick Actions + Recent Activity */}
@@ -137,23 +177,49 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Recent Activity */}
+        {/* Recent Chat Sessions */}
         <div className="bg-white rounded-2xl border-2 border-slate-100 p-6 shadow-sm">
-          <h2 className="text-xl font-bold text-slate-900 mb-4">Recent Activity</h2>
-          <ul className="space-y-3">
-            {recentActivity.map((activity, i) => (
-              <li key={i} className="flex items-start gap-3 py-2 border-b border-slate-50 last:border-0">
-                <div className="w-8 h-8 bg-gradient-to-br from-[#17789C]/10 to-[#92A7C3]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Activity className="w-4 h-4 text-[#17789C]" />
+          <h2 className="text-xl font-bold text-slate-900 mb-4">Recent Chat Sessions</h2>
+          {loading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex gap-3 py-2 animate-pulse">
+                  <div className="w-8 h-8 bg-slate-200 rounded-full" />
+                  <div className="flex-1">
+                    <div className="h-4 bg-slate-200 rounded w-32 mb-1" />
+                    <div className="h-3 bg-slate-100 rounded w-48" />
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-900">{activity.action}</p>
-                  <p className="text-sm text-slate-600 truncate">{activity.provider}</p>
-                  <p className="text-xs text-slate-400">{activity.time} · {activity.user}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
+              ))}
+            </div>
+          ) : sessions.length === 0 ? (
+            <p className="text-sm text-slate-500 py-4 text-center">No chat sessions yet</p>
+          ) : (
+            <ul className="space-y-3">
+              {sessions.map((session) => (
+                <li key={session.id} className="flex items-start gap-3 py-2 border-b border-slate-50 last:border-0">
+                  <div className="w-8 h-8 bg-gradient-to-br from-[#17789C]/10 to-[#92A7C3]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <MessageSquare className="w-4 h-4 text-[#17789C]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {session.message_count} messages
+                      {session.escalated && <span className="text-red-600 ml-2 text-xs font-medium">ESCALATED</span>}
+                    </p>
+                    <p className="text-sm text-slate-600 truncate">
+                      {session.user_location
+                        ? `From ${[session.user_location.city, session.user_location.zip].filter(Boolean).join(", ")}`
+                        : "Location not provided"}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {new Date(session.started_at).toLocaleDateString()} · {new Date(session.started_at).toLocaleTimeString()}
+                      {session.avg_rating !== null && ` · Rating: ${session.avg_rating}/5`}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </div>

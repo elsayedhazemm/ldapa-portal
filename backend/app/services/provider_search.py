@@ -298,14 +298,15 @@ async def get_all_providers(
             params.append(profession)
 
         if city:
-            conditions.append("LOWER(p.city) LIKE LOWER(?)")
-            params.append(f"%{city}%")
+            conditions.append("LOWER(p.city) LIKE LOWER(?) ESCAPE '\\'")
+            params.append(f"%{_escape_like(city)}%")
 
         if search:
             conditions.append(
-                "(LOWER(p.name) LIKE LOWER(?) OR LOWER(p.services) LIKE LOWER(?) OR LOWER(p.training) LIKE LOWER(?))"
+                "(LOWER(p.name) LIKE LOWER(?) ESCAPE '\\' OR LOWER(p.services) LIKE LOWER(?) ESCAPE '\\' OR LOWER(p.training) LIKE LOWER(?) ESCAPE '\\')"
             )
-            params.extend([f"%{search}%"] * 3)
+            escaped_search = f"%{_escape_like(search)}%"
+            params.extend([escaped_search] * 3)
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
         offset = (page - 1) * per_page

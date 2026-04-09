@@ -7,52 +7,57 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { mockProviders } from "@/lib/mockData";
-import { exportToCSV, downloadCSV, parseCSV, type CSVImportRow } from "@/lib/csv";
+import { importPreview, importConfirm } from "@/lib/api";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function ImportExportPage() {
-  const [importResults, setImportResults] = useState<CSVImportRow[]>([]);
+  const [previewData, setPreviewData] = useState<{ valid: Record<string, unknown>[]; warnings: string[]; errors: string[] } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [importStatus, setImportStatus] = useState<"idle" | "preview" | "success" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = () => {
-    const csvContent = exportToCSV(mockProviders);
-    const filename = `lda-of-pa-providers-${new Date().toISOString().split("T")[0]}.csv`;
-    downloadCSV(csvContent, filename);
+    // Direct download from backend
+    const token = typeof window !== "undefined" ? localStorage.getItem("ldapa_admin_token") : null;
+    window.open(`${API_BASE}/api/admin/providers/export?token=${token}`, "_blank");
   };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const results = parseCSV(text, mockProviders);
-      setImportResults(results);
+    try {
+      const data = await importPreview(file);
+      setPreviewData(data);
       setImportStatus("preview");
-    };
-    reader.readAsText(file);
+    } catch (e) {
+      setErrorMessage("Failed to preview CSV file. Please check the format.");
+      setImportStatus("error");
+    }
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
+    if (!previewData?.valid?.length) return;
     setIsImporting(true);
-    setTimeout(() => {
-      setIsImporting(false);
+    try {
+      await importConfirm(previewData.valid);
       setImportStatus("success");
-      setTimeout(() => { setImportStatus("idle"); setImportResults([]); }, 3000);
-    }, 2000);
+      setTimeout(() => { setImportStatus("idle"); setPreviewData(null); }, 3000);
+    } catch (e) {
+      setErrorMessage("Failed to import providers.");
+      setImportStatus("error");
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   const handleCancel = () => {
     setImportStatus("idle");
-    setImportResults([]);
+    setPreviewData(null);
+    setErrorMessage("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
-
-  const validRows = importResults.filter((r) => r.errors.length === 0);
-  const errorRows = importResults.filter((r) => r.errors.length > 0);
-  const duplicateRows = importResults.filter((r) => r.isDuplicate);
 
   return (
     <div className="p-8">
@@ -66,8 +71,15 @@ export default function ImportExportPage() {
           <CheckCircle className="w-5 h-5 text-green-600" />
           <div>
             <p className="font-semibold text-green-900">Import Successful!</p>
-            <p className="text-sm text-green-800">{validRows.length} provider(s) have been imported successfully.</p>
+            <p className="text-sm text-green-800">{previewData?.valid?.length || 0} provider(s) imported.</p>
           </div>
+        </div>
+      )}
+
+      {importStatus === "error" && errorMessage && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600" />
+          <p className="text-sm text-red-800">{errorMessage}</p>
         </div>
       )}
 
@@ -113,70 +125,36 @@ export default function ImportExportPage() {
           </div>
         )}
 
-        {importStatus === "preview" && (
+        {importStatus === "preview" && previewData && (
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-1"><CheckCircle className="w-5 h-5 text-green-600" /><p className="font-semibold text-green-900">Valid Rows</p></div>
-                <p className="text-2xl font-bold text-green-700">{validRows.length}</p>
+                <p className="text-2xl font-bold text-green-700">{previewData.valid.length}</p>
               </div>
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-1"><AlertCircle className="w-5 h-5 text-red-600" /><p className="font-semibold text-red-900">Errors</p></div>
-                <p className="text-2xl font-bold text-red-700">{errorRows.length}</p>
+                <p className="text-2xl font-bold text-red-700">{previewData.errors.length}</p>
               </div>
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-1"><AlertTriangle className="w-5 h-5 text-yellow-600" /><p className="font-semibold text-yellow-900">Duplicates</p></div>
-                <p className="text-2xl font-bold text-yellow-700">{duplicateRows.length}</p>
+                <div className="flex items-center gap-2 mb-1"><AlertTriangle className="w-5 h-5 text-yellow-600" /><p className="font-semibold text-yellow-900">Warnings</p></div>
+                <p className="text-2xl font-bold text-yellow-700">{previewData.warnings.length}</p>
               </div>
             </div>
 
-            <div className="border border-gray-200 rounded-lg overflow-hidden max-h-96 overflow-y-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-50">
-                    <TableHead className="font-semibold text-gray-900">Row</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Status</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Provider Name</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Service Type</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Email</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Issues</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {importResults.map((row) => {
-                    const hasErrors = row.errors.length > 0;
-                    const hasDuplicate = row.isDuplicate;
-                    return (
-                      <TableRow key={row.rowNumber} className={hasErrors ? "bg-red-50" : hasDuplicate ? "bg-yellow-50" : "bg-green-50"}>
-                        <TableCell className="font-medium">{row.rowNumber}</TableCell>
-                        <TableCell>
-                          {hasErrors ? (
-                            <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200"><AlertCircle className="w-3 h-3 mr-1" />Error</Badge>
-                          ) : hasDuplicate ? (
-                            <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200"><AlertTriangle className="w-3 h-3 mr-1" />Duplicate</Badge>
-                          ) : (
-                            <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200"><CheckCircle className="w-3 h-3 mr-1" />Valid</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>{row.data.name || "—"}</TableCell>
-                        <TableCell className="capitalize">{row.data.serviceType || "—"}</TableCell>
-                        <TableCell className="text-sm">{row.data.email || "—"}</TableCell>
-                        <TableCell>
-                          {row.errors.length > 0 && <ul className="text-sm text-red-700 list-disc list-inside">{row.errors.map((e, i) => <li key={i}>{e}</li>)}</ul>}
-                          {row.warnings.length > 0 && <ul className="text-sm text-yellow-700 list-disc list-inside">{row.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>}
-                          {row.errors.length === 0 && row.warnings.length === 0 && <span className="text-sm text-gray-500">—</span>}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+            {previewData.errors.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="font-semibold text-red-900 mb-2">Errors:</p>
+                <ul className="text-sm text-red-700 list-disc list-inside space-y-1">
+                  {previewData.errors.slice(0, 10).map((e, i) => <li key={i}>{e}</li>)}
+                </ul>
+              </div>
+            )}
 
             <div className="flex justify-end gap-3">
               <Button variant="outline" onClick={handleCancel}><X className="w-4 h-4 mr-2" />Cancel</Button>
-              <Button onClick={handleImport} disabled={validRows.length === 0 || isImporting} className="bg-green-600 hover:bg-green-700 text-white">
-                <Upload className="w-4 h-4 mr-2" />{isImporting ? "Importing..." : `Import ${validRows.length} Valid Row(s)`}
+              <Button onClick={handleImport} disabled={previewData.valid.length === 0 || isImporting} className="bg-green-600 hover:bg-green-700 text-white">
+                <Upload className="w-4 h-4 mr-2" />{isImporting ? "Importing..." : `Import ${previewData.valid.length} Valid Row(s)`}
               </Button>
             </div>
           </div>
@@ -187,11 +165,9 @@ export default function ImportExportPage() {
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
         <h3 className="font-semibold text-blue-900 mb-3">CSV Format Guidelines</h3>
         <div className="space-y-2 text-sm text-blue-800">
-          <p><strong>Required columns:</strong> Name, Service Type, Location, ZIP, Phone, Email, Cost, Languages</p>
-          <p><strong>Optional columns:</strong> Organization, Website, Populations Served, Insurance, License Number, Specializations</p>
-          <p><strong>Service types:</strong> evaluator, tutor, advocate, therapist</p>
-          <p><strong>Multi-value fields:</strong> Separate multiple values with semicolons (;)</p>
-          <p><strong>Duplicates:</strong> Providers with matching name and email will be flagged as duplicates</p>
+          <p><strong>Required columns:</strong> Name, Profession Name</p>
+          <p><strong>Optional columns:</strong> City, State Code, ZIP Code, Phone, Email, Website, Services, Training, Price Per Visit, Insurance Accepted, Age Range Served</p>
+          <p><strong>Profession types:</strong> Tutor, Health_Professional, Lawyer, School, Advocate</p>
           <p className="pt-2 font-semibold">Tip: Export existing data to see the correct format, then modify and re-import.</p>
         </div>
       </div>

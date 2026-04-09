@@ -125,7 +125,10 @@ export function ChatView() {
         content: m.content,
       }));
 
-      const response = await sendChatMessage(userType ? `[User is seeking help for: ${roleLabel}] ${text}` : text, history, sessionId || undefined);
+      let messageText = text;
+      if (userType) messageText = `[User is seeking help for: ${roleLabel}] ${messageText}`;
+      if (locationInput.trim()) messageText = `${messageText} [Location: ${locationInput.trim()}]`;
+      const response = await sendChatMessage(messageText, history, sessionId || undefined);
       setSessionId(response.session_id);
 
       const assistantMsg: DisplayMessage = {
@@ -304,19 +307,9 @@ export function ChatView() {
                     <div className="flex justify-start">
                       <div className="bg-white rounded-2xl rounded-tl-sm px-4 sm:px-6 py-4 sm:py-5 max-w-[90%] sm:max-w-2xl shadow-md border border-gray-100">
                         <div className="space-y-3">
-                          {(() => {
-                            const parts = message.content.split(" - ").map(p => p.trim()).filter(p => p.length > 0);
-                            return parts.map((part, i) =>
-                              i === 0 ? (
-                                <p key={i} className="text-lg text-gray-800 leading-relaxed">{part}</p>
-                              ) : (
-                                <div key={i} className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
-                                  <span className="text-blue-500 font-bold mt-0.5">→</span>
-                                  <p className="text-base text-gray-800 leading-relaxed">{part}</p>
-                                </div>
-                              )
-                            );
-                          })()}
+                          {message.content.replace(/\[PROVIDERS\]/gi, "").trim().split("\n").map((line, i) => (
+                            <p key={i} className="text-lg text-gray-800 leading-relaxed">{line || "\u00A0"}</p>
+                          ))}
                         </div>
                         {message.escalate && (
                           <div className="my-3 rounded-lg border-2 border-amber-300 bg-amber-50 p-4">
@@ -350,17 +343,28 @@ export function ChatView() {
                                     </div>
                                   </div>
                                   <div className="space-y-1 mb-3 text-base text-gray-700">
-                                    <p><span className="font-semibold">Location:</span> {provider.city}</p>
-                                    <p><span className="font-semibold">Cost:</span> {provider.cost_tier}</p>
+                                    {provider.profession_name && (
+                                      <p><span className="font-semibold">Type:</span> {provider.profession_name.replace(/_/g, " ")}</p>
+                                    )}
+                                    <p><span className="font-semibold">Location:</span> {provider.city}{provider.state_code ? `, ${provider.state_code}` : ""}{provider.zip_code ? ` ${provider.zip_code}` : ""}</p>
+                                    {provider.price_per_visit && (
+                                      <p><span className="font-semibold">Cost:</span> {provider.price_per_visit}</p>
+                                    )}
+                                    {provider.sliding_scale && (
+                                      <p className="text-green-700 font-medium">Sliding scale available</p>
+                                    )}
+                                    {provider.insurance_accepted && (
+                                      <p><span className="font-semibold">Insurance:</span> {provider.insurance_accepted}</p>
+                                    )}
                                   </div>
                                   <button
                                     onClick={() => setSelectedProvider({
                                       id: provider.id,
                                       name: provider.name,
-                                      organization: provider.organization || "",
-                                      serviceType: provider.service_types?.join(", ") || "",
-                                      location: provider.city,
-                                      cost: provider.cost_tier,
+                                      organization: provider.profession_name?.replace(/_/g, " ") || "",
+                                      serviceType: provider.services || provider.training || "",
+                                      location: `${provider.city || ""}${provider.state_code ? `, ${provider.state_code}` : ""}`,
+                                      cost: provider.price_per_visit || "Contact for pricing",
                                       phone: provider.phone || "",
                                       website: provider.website || "",
                                       verified: true,

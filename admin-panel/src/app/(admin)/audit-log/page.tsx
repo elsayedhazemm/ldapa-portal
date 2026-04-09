@@ -1,115 +1,69 @@
 "use client";
 
-import { useState } from "react";
-import { FileText, Search, Filter } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { useState, useEffect } from "react";
+import { FileText, MessageSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { mockAuditLog } from "@/lib/mockData";
-import type { AuditLogEntry } from "@/types";
+import { getRecentSessions, getSession } from "@/lib/api";
+
+interface SessionSummary {
+  id: string;
+  started_at: string;
+  message_count: number;
+  user_location: { city?: string; zip?: string } | null;
+  escalated: boolean;
+  avg_rating: number | null;
+}
 
 export default function AuditLogPage() {
-  const [logs] = useState<AuditLogEntry[]>(mockAuditLog);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [actionFilter, setActionFilter] = useState("all");
-  const [staffFilter, setStaffFilter] = useState("all");
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
 
-  const getActionBadge = (action: AuditLogEntry["action"]) => {
-    const variants = {
-      created: { className: "bg-blue-100 text-blue-800 border-blue-200", label: "Created" },
-      edited: { className: "bg-yellow-100 text-yellow-800 border-yellow-200", label: "Edited" },
-      verified: { className: "bg-green-100 text-green-800 border-green-200", label: "Verified" },
-      archived: { className: "bg-gray-100 text-gray-800 border-gray-200", label: "Archived" },
-      restored: { className: "bg-purple-100 text-purple-800 border-purple-200", label: "Restored" },
-      rejected: { className: "bg-red-100 text-red-800 border-red-200", label: "Rejected" },
-      approved: { className: "bg-green-100 text-green-800 border-green-200", label: "Approved" },
-    };
-    const variant = variants[action];
-    return <Badge className={`${variant.className} border`} variant="outline">{variant.label}</Badge>;
-  };
+  useEffect(() => {
+    async function fetchSessions() {
+      setLoading(true);
+      try {
+        const data = await getRecentSessions(page, 20);
+        setSessions(data.sessions);
+        setTotal(data.total);
+      } catch (e) {
+        console.error("Failed to fetch sessions:", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchSessions();
+  }, [page]);
 
-  const uniqueStaff = Array.from(new Set(logs.map((log) => log.staffMember))).sort();
-
-  const filteredLogs = logs.filter((log) => {
-    const matchesSearch =
-      searchQuery === "" ||
-      log.providerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.staffMember.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesAction = actionFilter === "all" || log.action === actionFilter;
-    const matchesStaff = staffFilter === "all" || log.staffMember === staffFilter;
-    return matchesSearch && matchesAction && matchesStaff;
-  });
+  const totalPages = Math.ceil(total / 20);
 
   return (
     <div className="p-8">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl font-semibold text-gray-900 mb-2 flex items-center gap-2">
-          <FileText className="w-8 h-8" aria-hidden="true" />Audit Log
+          <FileText className="w-8 h-8" aria-hidden="true" />Activity Log
         </h1>
-        <p className="text-gray-600">View all changes to provider records</p>
+        <p className="text-gray-600">View chat sessions and user engagement ({total} total sessions)</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        {[
-          { label: "Total Events", value: logs.length, color: "text-gray-900" },
-          { label: "Verifications", value: logs.filter((l) => l.action === "verified").length, color: "text-green-700" },
-          { label: "Edits", value: logs.filter((l) => l.action === "edited").length, color: "text-yellow-700" },
-          { label: "New Providers", value: logs.filter((l) => l.action === "created").length, color: "text-blue-700" },
-        ].map((stat) => (
-          <div key={stat.label} className="bg-white rounded-lg border border-gray-200 p-4">
-            <p className="text-sm text-gray-500 mb-1">{stat.label}</p>
-            <p className={`text-2xl font-semibold ${stat.color}`}>{stat.value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Filter className="w-5 h-5 text-gray-400" aria-hidden="true" />
-          <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <p className="text-sm text-gray-500 mb-1">Total Sessions</p>
+          <p className="text-2xl font-semibold text-gray-900">{total}</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label htmlFor="search-log" className="block text-sm font-medium text-gray-700 mb-1">Search</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
-              <Input id="search-log" type="search" placeholder="Search by provider or staff" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
-            </div>
-          </div>
-          <div>
-            <label htmlFor="action-filter" className="block text-sm font-medium text-gray-700 mb-1">Action Type</label>
-            <Select value={actionFilter} onValueChange={setActionFilter}>
-              <SelectTrigger id="action-filter"><SelectValue placeholder="All actions" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All actions</SelectItem>
-                <SelectItem value="created">Created</SelectItem>
-                <SelectItem value="edited">Edited</SelectItem>
-                <SelectItem value="verified">Verified</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
-                <SelectItem value="archived">Archived</SelectItem>
-                <SelectItem value="restored">Restored</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label htmlFor="staff-filter" className="block text-sm font-medium text-gray-700 mb-1">Staff Member</label>
-            <Select value={staffFilter} onValueChange={setStaffFilter}>
-              <SelectTrigger id="staff-filter"><SelectValue placeholder="All staff" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All staff</SelectItem>
-                {uniqueStaff.map((staff) => <SelectItem key={staff} value={staff}>{staff}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <p className="text-sm text-gray-500 mb-1">Escalated</p>
+          <p className="text-2xl font-semibold text-red-700">{sessions.filter((s) => s.escalated).length}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <p className="text-sm text-gray-500 mb-1">This Page</p>
+          <p className="text-2xl font-semibold text-gray-900">{sessions.length} sessions</p>
         </div>
       </div>
 
@@ -119,31 +73,54 @@ export default function AuditLogPage() {
           <TableHeader>
             <TableRow className="bg-gray-50">
               <TableHead className="font-semibold text-gray-900">Date & Time</TableHead>
-              <TableHead className="font-semibold text-gray-900">Staff Member</TableHead>
-              <TableHead className="font-semibold text-gray-900">Action</TableHead>
-              <TableHead className="font-semibold text-gray-900">Provider</TableHead>
-              <TableHead className="font-semibold text-gray-900">Details</TableHead>
+              <TableHead className="font-semibold text-gray-900">Session ID</TableHead>
+              <TableHead className="font-semibold text-gray-900">Messages</TableHead>
+              <TableHead className="font-semibold text-gray-900">Location</TableHead>
+              <TableHead className="font-semibold text-gray-900">Rating</TableHead>
+              <TableHead className="font-semibold text-gray-900">Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredLogs.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-8 text-gray-500">No audit log entries found.</TableCell></TableRow>
+            {loading ? (
+              <TableRow><TableCell colSpan={6} className="text-center py-8 text-gray-400">Loading...</TableCell></TableRow>
+            ) : sessions.length === 0 ? (
+              <TableRow><TableCell colSpan={6} className="text-center py-8 text-gray-500">No sessions found.</TableCell></TableRow>
             ) : (
-              filteredLogs.map((log) => (
-                <TableRow key={log.id} className="hover:bg-gray-50">
+              sessions.map((session) => (
+                <TableRow key={session.id} className="hover:bg-gray-50">
                   <TableCell className="text-sm">
                     <div>
-                      <p className="font-medium text-gray-900">{new Date(log.timestamp).toLocaleDateString()}</p>
-                      <p className="text-gray-500">{new Date(log.timestamp).toLocaleTimeString()}</p>
+                      <p className="font-medium text-gray-900">{new Date(session.started_at).toLocaleDateString()}</p>
+                      <p className="text-gray-500">{new Date(session.started_at).toLocaleTimeString()}</p>
                     </div>
                   </TableCell>
-                  <TableCell className="text-sm font-medium text-gray-900">{log.staffMember}</TableCell>
-                  <TableCell>{getActionBadge(log.action)}</TableCell>
-                  <TableCell className="font-medium text-blue-600">{log.providerName}</TableCell>
-                  <TableCell className="text-sm text-gray-600 max-w-md">
-                    {log.changes && <p className="italic">{log.changes}</p>}
-                    {log.notes && <p className="mt-1">{log.notes}</p>}
-                    {!log.changes && !log.notes && <span className="text-gray-400">—</span>}
+                  <TableCell className="text-sm font-mono text-gray-600">
+                    {session.id.substring(0, 8)}...
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      <MessageSquare className="w-4 h-4 text-gray-400" />
+                      <span className="text-gray-700">{session.message_count}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm text-gray-600">
+                    {session.user_location
+                      ? [session.user_location.city, session.user_location.zip].filter(Boolean).join(", ") || "Unknown"
+                      : "Not provided"}
+                  </TableCell>
+                  <TableCell>
+                    {session.avg_rating !== null ? (
+                      <span className="text-sm font-medium text-gray-700">{session.avg_rating}/5</span>
+                    ) : (
+                      <span className="text-sm text-gray-400">No rating</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {session.escalated ? (
+                      <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">Escalated</Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">Normal</Badge>
+                    )}
                   </TableCell>
                 </TableRow>
               ))
@@ -152,15 +129,27 @@ export default function AuditLogPage() {
         </Table>
       </div>
 
-      {filteredLogs.length > 0 && (
-        <div className="mt-4 text-sm text-gray-600 text-center">
-          Showing {filteredLogs.length} of {logs.length} entries
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between">
+          <span className="text-sm text-gray-500">
+            Page {page} of {totalPages} ({total} total)
+          </span>
+          <div className="flex gap-2">
+            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
+              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm disabled:opacity-50">
+              Previous
+            </button>
+            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm disabled:opacity-50">
+              Next
+            </button>
+          </div>
         </div>
       )}
 
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-sm text-blue-800">
-          <strong>About Audit Logs:</strong> This log tracks all changes to provider records for accountability and compliance. Entries are stored permanently and cannot be deleted.
+          <strong>About Activity Log:</strong> This log shows all chat sessions with the LDA of PA assistant. Escalated sessions indicate a user may need immediate human support.
         </p>
       </div>
     </div>
