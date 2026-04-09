@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from fastapi import APIRouter, Depends, HTTPException
 from app.auth import require_admin, verify_password, create_token
-from app.database import get_db
+from app.database import get_db, release_db
 from app.models.dashboard import (
     DashboardStats, ChatVolumePoint, SessionSummary, LoginRequest, LoginResponse,
 )
@@ -15,76 +15,50 @@ router = APIRouter(prefix="/api/admin", tags=["dashboard"])
 async def login(data: LoginRequest):
     db = await get_db()
     try:
-        cursor = await db.execute(
+        user = await db.fetchone(
             "SELECT * FROM admin_users WHERE email = ?", (data.email,)
         )
-        user = await cursor.fetchone()
         if not user:
             raise HTTPException(status_code=401, detail="Invalid credentials")
 
-        user_dict = dict(user)
-        if not verify_password(data.password, user_dict["password_hash"]):
+        if not verify_password(data.password, user["password_hash"]):
             raise HTTPException(status_code=401, detail="Invalid credentials")
 
-        token = create_token(user_dict["id"], user_dict["email"])
+        token = create_token(user["id"], user["email"])
         return LoginResponse(
             token=token,
-            user={"id": user_dict["id"], "email": user_dict["email"], "name": user_dict["name"]},
+            user={"id": user["id"], "email": user["email"], "name": user["name"]},
         )
     finally:
-        await db.close()
+        await release_db(db)
 
 
 @router.get("/dashboard/stats", response_model=DashboardStats)
 async def dashboard_stats(period: str = "week", _admin: dict = Depends(require_admin)):
     db = await get_db()
     try:
-        # Provider counts
-        cursor = await db.execute(
-            "SELECT COUNT(*) FROM providers WHERE is_deleted = 0"
-        )
-        total = (await cursor.fetchone())[0]
+        total = await db.fetchval("SELECT COUNT(*) FROM providers WHERE is_deleted = 0")
+        verified = await db.fetchval("SELECT COUNT(*) FROM providers WHERE verification_status = 'verified' AND is_deleted = 0")
+        unverified = await db.fetchval("SELECT COUNT(*) FROM providers WHERE verification_status = 'unverified' AND is_deleted = 0")
+        archived = await db.fetchval("SELECT COUNT(*) FROM providers WHERE verification_status = 'archived' AND is_deleted = 0")
 
-        cursor = await db.execute(
-            "SELECT COUNT(*) FROM providers WHERE verification_status = 'verified' AND is_deleted = 0"
-        )
-        verified = (await cursor.fetchone())[0]
-
-        cursor = await db.execute(
-            "SELECT COUNT(*) FROM providers WHERE verification_status = 'unverified' AND is_deleted = 0"
-        )
-        unverified = (await cursor.fetchone())[0]
-
-        cursor = await db.execute(
-            "SELECT COUNT(*) FROM providers WHERE verification_status = 'archived' AND is_deleted = 0"
-        )
-        archived = (await cursor.fetchone())[0]
-
-        # Chat sessions
         period_filter = _get_period_filter(period)
-        cursor = await db.execute(
-            f"SELECT COUNT(*) FROM chat_sessions WHERE {period_filter}"
-        )
-        chat_sessions = (await cursor.fetchone())[0]
+        chat_sessions = await db.fetchval(f"SELECT COUNT(*) FROM chat_sessions WHERE {period_filter}")
 
-        # Average feedback
-        cursor = await db.execute(
+        row = await db.fetchone(
             """SELECT
                 CAST(SUM(CASE WHEN rating = 'up' THEN 1 ELSE 0 END) AS FLOAT) /
-                NULLIF(COUNT(*), 0)
+                NULLIF(COUNT(*), 0) as ratio
             FROM chat_feedback"""
         )
-        row = await cursor.fetchone()
-        avg_feedback = round((row[0] or 0) * 5, 1)
+        avg_feedback = round((row["ratio"] or 0) * 5, 1) if row else 0
 
-        # Top themes (simple keyword extraction from recent messages)
-        cursor = await db.execute(
+        messages = await db.fetch(
             """SELECT content FROM chat_messages
             WHERE role = 'user'
             ORDER BY created_at DESC LIMIT 50"""
         )
-        messages = await cursor.fetchall()
-        top_themes = _extract_themes([dict(m)["content"] for m in messages])
+        top_themes = _extract_themes([m["content"] for m in messages])
 
         return DashboardStats(
             total_providers=total,
@@ -96,29 +70,24 @@ async def dashboard_stats(period: str = "week", _admin: dict = Depends(require_a
             top_themes=top_themes,
         )
     finally:
-        await db.close()
+        await release_db(db)
 
 
 @router.get("/dashboard/chat-volume")
 async def chat_volume(period: str = "week", _admin: dict = Depends(require_admin)):
     db = await get_db()
     try:
-        if period == "month":
-            days = 30
-        else:
-            days = 7
-
-        cursor = await db.execute(
+        days = 30 if period == "month" else 7
+        rows = await db.fetch(
             f"""SELECT date(started_at) as date, COUNT(*) as count
             FROM chat_sessions
             WHERE started_at >= datetime('now', '-{days} days')
             GROUP BY date(started_at)
             ORDER BY date"""
         )
-        rows = await cursor.fetchall()
-        return {"data": [{"date": dict(r)["date"], "count": dict(r)["count"]} for r in rows]}
+        return {"data": [{"date": r["date"], "count": r["count"]} for r in rows]}
     finally:
-        await db.close()
+        await release_db(db)
 
 
 @router.get("/dashboard/recent-sessions")
@@ -128,10 +97,9 @@ async def recent_sessions(
     db = await get_db()
     try:
         offset = (page - 1) * per_page
-        cursor = await db.execute("SELECT COUNT(*) FROM chat_sessions")
-        total = (await cursor.fetchone())[0]
+        total = await db.fetchval("SELECT COUNT(*) FROM chat_sessions")
 
-        cursor = await db.execute(
+        rows = await db.fetch(
             """SELECT cs.*,
                 (SELECT AVG(CASE WHEN cf.rating = 'up' THEN 1.0 ELSE 0.0 END)
                  FROM chat_feedback cf WHERE cf.session_id = cs.id) as avg_rating
@@ -140,10 +108,8 @@ async def recent_sessions(
             LIMIT ? OFFSET ?""",
             (per_page, offset),
         )
-        rows = await cursor.fetchall()
         sessions = []
-        for r in rows:
-            d = dict(r)
+        for d in rows:
             loc = None
             if d.get("user_location"):
                 try:
@@ -162,30 +128,26 @@ async def recent_sessions(
             )
         return {"sessions": sessions, "total": total}
     finally:
-        await db.close()
+        await release_db(db)
 
 
 @router.get("/dashboard/sessions/{session_id}")
 async def get_session(session_id: str, _admin: dict = Depends(require_admin)):
     db = await get_db()
     try:
-        cursor = await db.execute(
+        session = await db.fetchone(
             "SELECT * FROM chat_sessions WHERE id = ?", (session_id,)
         )
-        session = await cursor.fetchone()
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
 
-        cursor = await db.execute(
+        messages = await db.fetch(
             "SELECT * FROM chat_messages WHERE session_id = ? ORDER BY created_at",
             (session_id,),
         )
-        messages = [dict(m) for m in await cursor.fetchall()]
-
-        cursor = await db.execute(
+        feedback = await db.fetch(
             "SELECT * FROM chat_feedback WHERE session_id = ?", (session_id,)
         )
-        feedback = [dict(f) for f in await cursor.fetchall()]
 
         session_dict = dict(session)
         if session_dict.get("user_location"):
@@ -200,7 +162,7 @@ async def get_session(session_id: str, _admin: dict = Depends(require_admin)):
             "feedback": feedback,
         }
     finally:
-        await db.close()
+        await release_db(db)
 
 
 def _get_period_filter(period: str) -> str:

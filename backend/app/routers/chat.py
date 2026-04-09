@@ -5,7 +5,7 @@ import time
 import uuid
 from collections import defaultdict
 from fastapi import APIRouter, HTTPException
-from app.database import get_db
+from app.database import get_db, release_db
 from app.models.chat import ChatRequest, ChatResponse, FeedbackRequest, ProviderCard
 from app.services.llm import extract_filters, generate_response
 from app.services.provider_search import search_providers, format_provider_context
@@ -145,7 +145,7 @@ async def chat(request: ChatRequest):
             escalate=escalate,
         )
     finally:
-        await db.close()
+        await release_db(db)
 
 
 @router.post("/feedback")
@@ -160,7 +160,7 @@ async def submit_feedback(request: FeedbackRequest):
         await db.commit()
         return {"success": True}
     finally:
-        await db.close()
+        await release_db(db)
 
 
 @router.get("/health")

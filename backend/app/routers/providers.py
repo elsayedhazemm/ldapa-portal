@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from app.auth import require_admin
-from app.database import get_db
+from app.database import get_db, release_db
 from app.models.provider import ProviderCreate, ProviderUpdate, ProviderResponse
 from app.services.provider_search import get_all_providers, get_provider_by_id
 from app.services.csv_importer import parse_csv
@@ -74,7 +74,7 @@ async def create_provider(data: ProviderCreate, _admin: dict = Depends(require_a
         provider = await get_provider_by_id(provider_id)
         return _to_response(provider)
     finally:
-        await db.close()
+        await release_db(db)
 
 
 @router.put("/{provider_id}")
@@ -109,7 +109,7 @@ async def update_provider(
         provider = await get_provider_by_id(provider_id)
         return _to_response(provider)
     finally:
-        await db.close()
+        await release_db(db)
 
 
 @router.delete("/{provider_id}")
@@ -123,7 +123,7 @@ async def delete_provider(provider_id: str, _admin: dict = Depends(require_admin
         await db.commit()
         return {"success": True}
     finally:
-        await db.close()
+        await release_db(db)
 
 
 @router.patch("/{provider_id}/verify")
@@ -140,7 +140,7 @@ async def verify_provider(provider_id: str, _admin: dict = Depends(require_admin
         provider = await get_provider_by_id(provider_id)
         return _to_response(provider)
     finally:
-        await db.close()
+        await release_db(db)
 
 
 @router.patch("/{provider_id}/archive")
@@ -148,15 +148,14 @@ async def archive_provider(provider_id: str, _admin: dict = Depends(require_admi
     db = await get_db()
     try:
         await db.execute(
-            """UPDATE providers SET verification_status = 'archived',
-                updated_at = datetime('now') WHERE id = ?""",
+            "UPDATE providers SET verification_status = 'archived', updated_at = datetime('now') WHERE id = ?",
             (provider_id,),
         )
         await db.commit()
         provider = await get_provider_by_id(provider_id)
         return _to_response(provider)
     finally:
-        await db.close()
+        await release_db(db)
 
 
 @router.post("/bulk-verify")
@@ -174,7 +173,7 @@ async def bulk_verify(body: dict, _admin: dict = Depends(require_admin)):
         await db.commit()
         return {"success": True, "count": len(ids)}
     finally:
-        await db.close()
+        await release_db(db)
 
 
 @router.post("/bulk-archive")
@@ -184,14 +183,13 @@ async def bulk_archive(body: dict, _admin: dict = Depends(require_admin)):
     try:
         for pid in ids:
             await db.execute(
-                """UPDATE providers SET verification_status = 'archived',
-                    updated_at = datetime('now') WHERE id = ?""",
+                "UPDATE providers SET verification_status = 'archived', updated_at = datetime('now') WHERE id = ?",
                 (pid,),
             )
         await db.commit()
         return {"success": True, "count": len(ids)}
     finally:
-        await db.close()
+        await release_db(db)
 
 
 @router.post("/import/preview")
@@ -243,4 +241,4 @@ async def import_confirm(body: dict, _admin: dict = Depends(require_admin)):
         await db.commit()
         return {"imported": imported, "skipped": len(providers) - imported}
     finally:
-        await db.close()
+        await release_db(db)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from app.database import get_db
+from app.database import get_db, release_db
 
 
 def _escape_like(value: str) -> str:
@@ -202,13 +202,12 @@ _ZIP_TO_COORDS: dict[str, tuple[float, float]] = {}
 
 async def _resolve_zip_coords(zip_code: str, db) -> tuple[float, float] | None:
     """Look up approximate lat/lon for a zip code using existing provider data."""
-    cursor = await db.execute(
-        "SELECT AVG(lat), AVG(lon) FROM providers WHERE zip_code = ? AND lat IS NOT NULL",
+    row = await db.fetchone(
+        "SELECT AVG(lat) as avg_lat, AVG(lon) as avg_lon FROM providers WHERE zip_code = ? AND lat IS NOT NULL",
         (zip_code,),
     )
-    row = await cursor.fetchone()
-    if row and row[0] is not None:
-        return (row[0], row[1])
+    if row and row["avg_lat"] is not None:
+        return (row["avg_lat"], row["avg_lon"])
     return None
 
 
@@ -229,47 +228,41 @@ async def search_providers(filters: dict, db=None) -> tuple[list[dict], bool]:
             coords = await _resolve_zip_coords(location["zip"], db)
             if coords:
                 query, params = _build_geo_query(filters, coords[0], coords[1])
-                cursor = await db.execute(query, params)
-                rows = await cursor.fetchall()
+                rows = await db.fetch(query, params)
                 if rows:
                     return [_row_to_dict(r) for r in rows], False
                 # Widen radius
                 query, params = _build_geo_query(filters, coords[0], coords[1], radius_miles=75.0)
-                cursor = await db.execute(query, params)
-                rows = await cursor.fetchall()
+                rows = await db.fetch(query, params)
                 if rows:
                     return [_row_to_dict(r) for r in rows], True
 
         # Pass 1: strict search (exact city + age)
         query, params = _build_query(filters)
-        cursor = await db.execute(query, params)
-        rows = await cursor.fetchall()
+        rows = await db.fetch(query, params)
         if rows:
             return [_row_to_dict(r) for r in rows], False
 
         # Pass 2: relax age group, keep city
         query, params = _build_query(filters, relax_age=True)
-        cursor = await db.execute(query, params)
-        rows = await cursor.fetchall()
+        rows = await db.fetch(query, params)
         if rows:
             return [_row_to_dict(r) for r in rows], True
 
         # Pass 3: relax city (state-wide), keep age
         query, params = _build_query(filters, relax_city=True)
-        cursor = await db.execute(query, params)
-        rows = await cursor.fetchall()
+        rows = await db.fetch(query, params)
         if rows:
             return [_row_to_dict(r) for r in rows], True
 
         # Pass 4: relax both city and age
         query, params = _build_query(filters, relax_city=True, relax_age=True)
-        cursor = await db.execute(query, params)
-        rows = await cursor.fetchall()
+        rows = await db.fetch(query, params)
         return [_row_to_dict(r) for r in rows], True
 
     finally:
         if close_db:
-            await db.close()
+            await release_db(db)
 
 
 async def get_all_providers(
@@ -311,10 +304,7 @@ async def get_all_providers(
         where_clause = " AND ".join(conditions) if conditions else "1=1"
         offset = (page - 1) * per_page
 
-        count_query = f"SELECT COUNT(*) FROM providers p WHERE {where_clause}"
-        cursor = await db.execute(count_query, params)
-        row = await cursor.fetchone()
-        total = row[0]
+        total = await db.fetchval(f"SELECT COUNT(*) FROM providers p WHERE {where_clause}", params)
 
         query = f"""
             SELECT p.* FROM providers p
@@ -324,27 +314,24 @@ async def get_all_providers(
         """
         params.extend([per_page, offset])
 
-        cursor = await db.execute(query, params)
-        rows = await cursor.fetchall()
-
+        rows = await db.fetch(query, params)
         providers = [_row_to_dict(row) for row in rows]
         return providers, total
     finally:
-        await db.close()
+        await release_db(db)
 
 
 async def get_provider_by_id(provider_id: str) -> dict | None:
     db = await get_db()
     try:
-        cursor = await db.execute(
+        row = await db.fetchone(
             "SELECT * FROM providers WHERE id = ? AND is_deleted = 0", (provider_id,)
         )
-        row = await cursor.fetchone()
         if row:
             return _row_to_dict(row)
         return None
     finally:
-        await db.close()
+        await release_db(db)
 
 
 def _row_to_dict(row) -> dict:
