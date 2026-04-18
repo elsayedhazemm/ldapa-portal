@@ -315,8 +315,11 @@ If all three pass, the system is healthy.
 
 We provide **maintenance and support to resolve any implementation issues and problems** during the agreed post-deployment support window.
 
-> **Support window: through July 31st, 2026.**
-> **Tech Lead contact: Hazem El-Sayed — hmelsaye@andrew.cmu.edu**
+**Support window:** through **July 31st, 2026**.
+
+**Tech Lead:** Hazem El-Sayed
+
+**Email:** `hmelsaye@andrew.cmu.edu`
 
 ### When to reach out
 
