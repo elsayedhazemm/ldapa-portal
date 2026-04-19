@@ -41,7 +41,7 @@ cp .env.example .env
 uvicorn app.main:app --port 8000 --reload
 ```
 
-On first run the backend automatically creates the SQLite database, applies the schema, and seeds it with 12 sample providers and a default admin user.
+On first run the backend automatically creates the database, applies the schema, and seeds it with providers from the Brilliant Directories CSV export at the repo root (~3,600 records) if present, or the small `seed.sql` sample set otherwise. It also creates a default admin user.
 
 Verify it's running: `http://localhost:8000/api/health` should return `{"status": "ok"}`.
 
@@ -88,11 +88,12 @@ Open **http://localhost:3001** and log in with:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_PATH` | `ldapa.db` | Path to the SQLite file |
+| `DATABASE_URL` | *(empty)* | PostgreSQL connection string (e.g. `postgres://...`). If set, the backend uses Postgres via asyncpg; otherwise it falls back to SQLite at `DATABASE_PATH`. |
+| `DATABASE_PATH` | `ldapa.db` | Path to the SQLite file (used only when `DATABASE_URL` is unset) |
 | `OPENAI_API_KEY` | *(empty)* | OpenAI key for LLM features; leave blank for keyword fallback |
 | `JWT_SECRET` | `dev-secret-change-in-production` | Secret used to sign JWT tokens |
 | `CORS_ORIGINS` | `http://localhost:3000,http://localhost:3001` | Allowed CORS origins (comma-separated) |
-| `LLM_MODEL` | `gpt-4o-mini` | OpenAI model to use |
+| `LLM_MODEL` | `gpt-5-mini` | OpenAI model to use |
 
 ### Frontends (`public-portal/.env.local` and `admin-panel/.env.local`)
 
@@ -129,15 +130,20 @@ If no OpenAI API key is configured, the first step falls back to keyword-based e
 | GET | `/api/admin/dashboard/recent-sessions` | Paginated recent sessions |
 | GET | `/api/admin/dashboard/sessions/{id}` | Full session with messages |
 | GET | `/api/admin/providers` | List providers (search, filter, paginate) |
+| GET | `/api/admin/providers/{id}` | Get a single provider |
 | POST | `/api/admin/providers` | Create a provider |
 | PUT | `/api/admin/providers/{id}` | Update a provider |
 | DELETE | `/api/admin/providers/{id}` | Soft-delete a provider |
+| PATCH | `/api/admin/providers/{id}/verify` | Mark a provider verified |
+| PATCH | `/api/admin/providers/{id}/archive` | Archive a provider |
+| POST | `/api/admin/providers/bulk-verify` | Bulk-verify providers by ID list |
+| POST | `/api/admin/providers/bulk-archive` | Bulk-archive providers by ID list |
 | POST | `/api/admin/providers/import/preview` | Preview a CSV import |
 | POST | `/api/admin/providers/import/confirm` | Confirm a CSV import |
 
 ## CSV Import
 
-The admin panel supports bulk provider import via CSV. Required columns: `name`, `city`, `cost_tier`. See the import preview endpoint for validation details.
+The admin panel supports bulk provider import via CSV, designed around the **Brilliant Directories member export** format. The importer consumes the full column set (`First Name`, `Last Name`, `Profession Name`, `Services`, `Training`, `City`, `State`, `Zip Code`, `Price Per Visit`, `Sliding Scale`, `Insurance Accepted`, `Age Range Served`, `Phone`, `Email`, `Website`, and so on) and normalises it into the `providers` table. See `backend/app/services/csv_importer.py` for the full mapping and `docs/handoff/04-data-modeling-and-db-population.md` for the provenance walkthrough.
 
 ## Project Structure
 
@@ -147,7 +153,7 @@ The admin panel supports bulk provider import via CSV. Required columns: `name`,
 │   │   ├── main.py              # FastAPI app entry point
 │   │   ├── config.py            # Environment config
 │   │   ├── auth.py              # JWT + bcrypt helpers
-│   │   ├── database.py          # SQLite connection & init
+│   │   ├── database.py          # Dual-mode SQLite / PostgreSQL wrapper
 │   │   ├── models/              # Pydantic request/response models
 │   │   ├── routers/             # API route handlers
 │   │   ├── services/            # Business logic (LLM, search, CSV)
@@ -165,7 +171,20 @@ The admin panel supports bulk provider import via CSV. Required columns: `name`,
 
 - **Change `JWT_SECRET`** to a cryptographically secure random string.
 - **Change the default admin password** after first login.
-- **Switch to PostgreSQL** — SQLite is for local development only.
+- **Use PostgreSQL** in production by setting `DATABASE_URL` — SQLite is for local development only.
 - **Restrict `CORS_ORIGINS`** to your actual frontend domains.
 - **Use HTTPS** for all traffic.
 - **Secure your OpenAI API key** using a secrets manager.
+
+## Deployment & handoff docs
+
+Full operational documentation lives under [`docs/handoff/`](docs/handoff/README.md):
+
+1. [Technical Requirements and Design](docs/handoff/01-technical-requirements-and-design.md)
+2. [System Architecture](docs/handoff/02-system-architecture.md)
+3. [APIs](docs/handoff/03-apis.md)
+4. [Data Modeling & DB Population](docs/handoff/04-data-modeling-and-db-population.md)
+5. [Deployment (Railway + Vercel)](docs/handoff/05-deployment.md)
+6. [Handoff (non-technical owner guide)](docs/handoff/06-handoff.md)
+
+The production deployment runs the backend on **Railway** (FastAPI + managed PostgreSQL) and both frontends on **Vercel**.
