@@ -48,12 +48,33 @@ class DB:
         if not is_pg:
             return sql
         s = sql
-        # datetime('now') → CURRENT_TIMESTAMP
+        # Timestamp columns are TEXT in the schema (SQLite compat). PG has no
+        # implicit cast between TEXT and TIMESTAMPTZ, so a range comparison of a
+        # text column against datetime('now' ...) must cast the column first.
+        # Only range operators — `=` is overloaded for assignment (UPDATE SET)
+        # and its RHS already coerces to TEXT on assignment.
+        # Must run BEFORE the bare datetime('now') rewrites below.
+        cmp_op = r"(>=|<=|>|<)"
+        col_ref = r"(\w+(?:\.\w+)?)"
+        s = re.sub(
+            rf"{col_ref}\s*{cmp_op}\s*datetime\('now',\s*'(-?\d+)\s+days?'\)",
+            r"\1::timestamptz \2 CURRENT_TIMESTAMP + INTERVAL '\3 days'",
+            s,
+            flags=re.IGNORECASE,
+        )
+        s = re.sub(
+            rf"{col_ref}\s*{cmp_op}\s*datetime\('now'\)",
+            r"\1::timestamptz \2 CURRENT_TIMESTAMP",
+            s,
+            flags=re.IGNORECASE,
+        )
+        # datetime('now') → CURRENT_TIMESTAMP (remaining assignment/DEFAULT uses)
         s = re.sub(r"datetime\('now'\)", "CURRENT_TIMESTAMP", s, flags=re.IGNORECASE)
-        # datetime('now', '-N days') → CURRENT_TIMESTAMP - INTERVAL 'N days'
+        # datetime('now', 'N days') — SQLite signs the magnitude, so use '+' in PG
+        # to preserve sign: datetime('now','-7 days') → CURRENT_TIMESTAMP + INTERVAL '-7 days'
         s = re.sub(
             r"datetime\('now',\s*'(-?\d+)\s+days?'\)",
-            r"CURRENT_TIMESTAMP - INTERVAL '\1 days'",
+            r"CURRENT_TIMESTAMP + INTERVAL '\1 days'",
             s,
             flags=re.IGNORECASE,
         )

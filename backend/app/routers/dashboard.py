@@ -77,15 +77,22 @@ async def dashboard_stats(period: str = "week", _admin: dict = Depends(require_a
 async def chat_volume(period: str = "week", _admin: dict = Depends(require_admin)):
     db = await get_db()
     try:
-        days = 30 if period == "month" else 7
+        if period == "today":
+            where_clause = "date(started_at) = date('now')"
+        elif period == "all":
+            where_clause = "1=1"
+        else:
+            days = 30 if period == "month" else 7
+            where_clause = f"started_at >= datetime('now', '-{days} days')"
+
         rows = await db.fetch(
             f"""SELECT date(started_at) as date, COUNT(*) as count
             FROM chat_sessions
-            WHERE started_at >= datetime('now', '-{days} days')
+            WHERE {where_clause}
             GROUP BY date(started_at)
             ORDER BY date"""
         )
-        return {"data": [{"date": r["date"], "count": r["count"]} for r in rows]}
+        return {"data": [{"date": str(r["date"]), "count": r["count"]} for r in rows]}
     finally:
         await release_db(db)
 
