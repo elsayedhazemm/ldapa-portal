@@ -125,14 +125,14 @@ function ContactModal({ userType, onClose }: { userType: string; onClose: () => 
           A draft email has been prepared for you. Click the button below to open it in your email app, or copy the details to send manually.
         </p>
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 text-sm text-gray-700 space-y-2">
-          <p><span className="font-semibold">To:</span> info@ldapa.org</p>
+          <p><span className="font-semibold">To:</span> info@ldaofpa.org</p>
           <p><span className="font-semibold">Subject:</span> Inquiry about LDA of PA Support Services</p>
-          <p><span className="font-semibold">Phone:</span> (484) 487-0300</p>
+          <p><span className="font-semibold">Phone:</span> (412) 212-7087</p>
           <p><span className="font-semibold">Hours:</span> Mon–Fri, 9am–5pm ET</p>
         </div>
         <div className="flex gap-3">
           <a
-            href={`mailto:info@ldapa.org?subject=${subject}&body=${body}`}
+            href={`mailto:info@ldaofpa.org?subject=${subject}&body=${body}`}
             className="flex-1 bg-blue-500 hover:bg-blue-600 text-white rounded-xl py-3 font-semibold text-center flex items-center justify-center gap-2 transition">
             <Mail className="w-4 h-4" />
             Open in Email App
@@ -211,7 +211,7 @@ export function ChatView() {
       setMessages((prev) => [...prev, {
         id: `error-${Date.now()}`,
         role: "assistant",
-        content: "I'm sorry, I'm having trouble connecting right now. Please try again or contact LDA of PA directly at info@ldapa.org.",
+        content: "I'm sorry, I'm having trouble connecting right now. Please try again or contact LDA of PA directly at info@ldaofpa.org.",
         feedback: null,
         followUps: FOLLOW_UPS.default,
       }]);
@@ -341,9 +341,9 @@ export function ChatView() {
                                 <h4 className="font-semibold text-amber-900">Contact LDA of PA Directly</h4>
                                 <p className="mt-1 text-sm text-amber-800">This is best handled by a person.</p>
                                 <div className="mt-3 space-y-1 text-sm">
-                                  <p><span className="font-medium">Phone:</span> (484) 487-0300</p>
+                                  <p><span className="font-medium">Phone:</span> (412) 212-7087</p>
                                   <p><span className="font-medium">Email:</span>{" "}
-                                    <a href="mailto:info@ldapa.org" className="text-blue-600 hover:underline">info@ldapa.org</a>
+                                    <a href="mailto:info@ldaofpa.org" className="text-blue-600 hover:underline">info@ldaofpa.org</a>
                                   </p>
                                   <p><span className="font-medium">Hours:</span> Mon–Fri 9am–5pm ET</p>
                                 </div>
