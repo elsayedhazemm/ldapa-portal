@@ -82,7 +82,7 @@ These are not optional. Do them as soon as you take over the account.
 
 1. **Add a payment method to Railway.** The free trial credit will run out and everything will shut off when it does. See §5.
 2. **Add credits (and auto-recharge) to OpenAI.** The AI stops working the moment your balance hits zero. See §6.
-3. **Save the admin password in your password manager.** The admin panel login is `directory@ldaofpa.org` with a strong random password that Hazem has given you separately. Store it somewhere durable before you close the chat. See §7.
+3. **Save the admin password in your password manager.** The admin panel login is `directory@ldaofpa.org` / `^waL5L-Bq--*KFe*2YgLVd`. Store it somewhere durable — the full credential is also in §7. Treat the handoff folder as confidential once you have it.
 4. **Rotate the OpenAI API key.** The key currently installed on Railway was created by the previous developer. Make your own and replace it. See §6.4.
 5. **(Recommended) Turn on two-factor authentication on the `directory@ldaofpa.org` Google account.** Since that single account unlocks everything, protect it with 2FA. Do this at https://myaccount.google.com/security.
 
@@ -197,7 +197,9 @@ The admin panel is where you actually do the work of running the directory (revi
 
 1. Go to https://ldapa-admin-panel.vercel.app
 2. Email: `directory@ldaofpa.org`
-3. Password: the one Hazem gave you in your password manager / 1Password handover. **Do not paste it into email.**
+3. Password: `^waL5L-Bq--*KFe*2YgLVd` *(22 characters, no spaces, case-sensitive)*
+
+Save the password in a password manager as soon as you receive this document. Anyone who has this PDF has the admin credentials, so treat the handoff folder as confidential.
 
 This login is **different from your Google login**. The admin panel does not use Google — it has its own email/password account that lives inside the portal's database.
 
